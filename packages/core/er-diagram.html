@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giggle Photos — Entity Relationship Diagram</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f0f0f;
+      color: #e4e4e7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #18181b;
+      border-bottom: 1px solid #27272a;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+    header p { font-size: 0.8rem; color: #a1a1aa; margin-top: 0.2rem; }
+    .controls { display: flex; gap: 0.5rem; }
+    .controls button {
+      background: #27272a;
+      color: #e4e4e7;
+      border: 1px solid #3f3f46;
+      border-radius: 0.375rem;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .controls button:hover { background: #3f3f46; }
+    .controls button.active { background: #4f46e5; border-color: #6366f1; }
+    #diagram-container {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    #diagram-container .mermaid {
+      max-width: 100%;
+    }
+    #diagram-container .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+    .legend {
+      background: #18181b;
+      border-top: 1px solid #27272a;
+      padding: 0.75rem 2rem;
+      font-size: 0.75rem;
+      color: #a1a1aa;
+      display: flex;
+      gap: 2rem;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .legend span { white-space: nowrap; }
+    .legend code {
+      background: #27272a;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.2rem;
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Entity Relationship Diagram</h1>
+      <p>Giggle Photos &mdash; SQLite schema via Kysely + Zod</p>
+    </div>
+    <div class="controls">
+      <button type="button" id="btn-zoom-in" title="Zoom In">+ Zoom</button>
+      <button type="button" id="btn-zoom-out" title="Zoom Out">&minus; Zoom</button>
+      <button type="button" id="btn-reset" title="Reset Zoom">Reset</button>
+      <button type="button" id="btn-theme" title="Toggle Light/Dark">Light</button>
+    </div>
+  </header>
+
+  <div id="diagram-container">
+    <pre class="mermaid">
+erDiagram
+    scanFolders {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        TEXT path UK "UNIQUE — absolute folder path"
+        INTEGER priority "1-5, DEFAULT 3"
+        TEXT status "added | scanning | ready | error"
+        INTEGER scanSubdirectories "boolean 0/1, DEFAULT 1"
+        INTEGER includeVideos "boolean 0/1, DEFAULT 1"
+        INTEGER imageCount "DEFAULT 0"
+        INTEGER videoCount "DEFAULT 0"
+        INTEGER totalSize "bytes, DEFAULT 0"
+        INTEGER createdAt "unix timestamp"
+        INTEGER updatedAt "unix timestamp"
+    }
+
+    mediaFiles {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER scanFolderId FK "FK → scanFolders.id CASCADE"
+        TEXT path UK "UNIQUE — absolute file path"
+        TEXT filename "name without directory"
+        TEXT extension "no dot (jpg, png, mp4)"
+        TEXT fileType "image | video"
+        INTEGER size "bytes"
+        TEXT status "pending | metadata | hashed | processed | error"
+        TEXT sha256Hash "nullable — exact file hash"
+        TEXT contentHash "nullable — image content hash"
+        TEXT perceptualHash "nullable — pHash"
+        TEXT errorMessage "nullable"
+        INTEGER createdAt "unix timestamp"
+        INTEGER updatedAt "unix timestamp"
+    }
+
+    imageMetadata {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER mediaFileId FK,UK "FK → mediaFiles.id CASCADE, UNIQUE"
+        INTEGER width "pixels"
+        INTEGER height "pixels"
+        TEXT format "jpeg, png, webp, gif …"
+        TEXT colorSpace "nullable — sRGB, Adobe RGB …"
+        INTEGER hasAlpha "boolean 0/1"
+        INTEGER orientation "nullable — EXIF 1-8"
+        INTEGER dateTaken "nullable — unix timestamp"
+        TEXT cameraMake "nullable — EXIF"
+        TEXT cameraModel "nullable — EXIF"
+        REAL gpsLatitude "nullable"
+        REAL gpsLongitude "nullable"
+        REAL gpsAltitude "nullable — meters"
+        INTEGER createdAt "unix timestamp"
+        INTEGER updatedAt "unix timestamp"
+    }
+
+    videoMetadata {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER mediaFileId FK,UK "FK → mediaFiles.id CASCADE, UNIQUE"
+        INTEGER width "pixels"
+        INTEGER height "pixels"
+        REAL duration "seconds"
+        REAL frameRate "nullable — fps"
+        TEXT codec "nullable — h264, hevc …"
+        TEXT audioCodec "nullable — aac, mp3 …"
+        INTEGER bitrate "nullable — bps"
+        INTEGER dateTaken "nullable — unix timestamp"
+        INTEGER createdAt "unix timestamp"
+        INTEGER updatedAt "unix timestamp"
+    }
+
+    phashMatches {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER mediaFileId1 FK "FK → mediaFiles.id CASCADE"
+        INTEGER mediaFileId2 FK "FK → mediaFiles.id CASCADE"
+        INTEGER distance "hamming distance 0-64"
+        INTEGER createdAt "unix timestamp"
+    }
+
+    phashGroupMembers {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER mediaFileId FK,UK "FK → mediaFiles.id CASCADE, UNIQUE"
+        INTEGER groupAnchorFileId "lowest file ID in component (not FK)"
+        INTEGER groupMinDistance "min hamming distance in group"
+        INTEGER createdAt "unix timestamp"
+    }
+
+    fileDecisions {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER mediaFileId FK "FK → mediaFiles.id CASCADE"
+        TEXT action "keep | delete"
+        TEXT method "sha256 | content_hash | phash"
+        TEXT reviewGroupKey "hash value or phash:anchorId"
+        INTEGER createdAt "unix timestamp"
+    }
+
+    scanFolders ||--o{ mediaFiles : "has many"
+    mediaFiles ||--o| imageMetadata : "has one (images)"
+    mediaFiles ||--o| videoMetadata : "has one (videos)"
+    mediaFiles ||--o{ fileDecisions : "has many"
+    mediaFiles ||--o{ phashMatches : "mediaFileId1"
+    mediaFiles ||--o{ phashMatches : "mediaFileId2"
+    mediaFiles ||--o| phashGroupMembers : "has one"
+    </pre>
+  </div>
+
+  <div class="legend">
+    <span><code>PK</code> Primary Key</span>
+    <span><code>FK</code> Foreign Key (all CASCADE on delete)</span>
+    <span><code>UK</code> Unique Constraint</span>
+    <span><code>||--o{</code> One-to-Many</span>
+    <span><code>||--o|</code> One-to-Zero-or-One</span>
+    <span>phashMatches: <code>CHECK mediaFileId1 &lt; mediaFileId2</code> (canonical pair ordering)</span>
+    <span>fileDecisions: <code>UNIQUE(mediaFileId, reviewGroupKey)</code></span>
+    <span>phashGroupMembers: <code>UNIQUE(mediaFileId)</code>, pre-computed connected components</span>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    let currentTheme = "dark";
+
+    function initMermaid(theme) {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: theme === "dark" ? "dark" : "default",
+        er: {
+          useMaxWidth: false,
+          layoutDirection: "TB",
+        },
+        themeVariables: theme === "dark" ? {
+          darkMode: true,
+          background: "#0f0f0f",
+          primaryColor: "#3b82f6",
+          primaryTextColor: "#e4e4e7",
+          lineColor: "#6366f1",
+          secondaryColor: "#27272a",
+        } : {},
+      });
+    }
+
+    async function renderDiagram() {
+      const container = document.getElementById("diagram-container");
+      const source = container.querySelector(".mermaid");
+      const definition = source.getAttribute("data-original") || source.textContent;
+
+      // Store original definition
+      if (!source.getAttribute("data-original")) {
+        source.setAttribute("data-original", definition);
+      }
+
+      // Clear and re-render
+      source.removeAttribute("data-processed");
+      source.innerHTML = definition;
+
+      initMermaid(currentTheme);
+      await mermaid.run({ nodes: [source] });
+    }
+
+    // Initial render
+    initMermaid("dark");
+    await mermaid.run();
+
+    // Zoom
+    let scale = 1;
+    const container = document.getElementById("diagram-container");
+
+    function applyZoom() {
+      const svg = container.querySelector("svg");
+      if (svg) {
+        svg.style.transform = `scale(${scale})`;
+        svg.style.transformOrigin = "center top";
+      }
+    }
+
+    document.getElementById("btn-zoom-in").addEventListener("click", () => {
+      scale = Math.min(scale + 0.2, 3);
+      applyZoom();
+    });
+
+    document.getElementById("btn-zoom-out").addEventListener("click", () => {
+      scale = Math.max(scale - 0.2, 0.3);
+      applyZoom();
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      scale = 1;
+      applyZoom();
+    });
+
+    // Theme toggle
+    document.getElementById("btn-theme").addEventListener("click", async () => {
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      const btn = document.getElementById("btn-theme");
+      btn.textContent = currentTheme === "dark" ? "Light" : "Dark";
+
+      if (currentTheme === "light") {
+        document.body.style.background = "#ffffff";
+        document.body.style.color = "#18181b";
+        document.querySelector("header").style.background = "#f4f4f5";
+        document.querySelector("header").style.borderColor = "#d4d4d8";
+        document.querySelector("header p").style.color = "#71717a";
+        document.querySelector(".legend").style.background = "#f4f4f5";
+        document.querySelector(".legend").style.borderColor = "#d4d4d8";
+        document.querySelector(".legend").style.color = "#71717a";
+      } else {
+        document.body.style.background = "#0f0f0f";
+        document.body.style.color = "#e4e4e7";
+        document.querySelector("header").style.background = "#18181b";
+        document.querySelector("header").style.borderColor = "#27272a";
+        document.querySelector("header p").style.color = "#a1a1aa";
+        document.querySelector(".legend").style.background = "#18181b";
+        document.querySelector(".legend").style.borderColor = "#27272a";
+        document.querySelector(".legend").style.color = "#a1a1aa";
+      }
+
+      scale = 1;
+      await renderDiagram();
+    });
+  </script>
+</body>
+</html>

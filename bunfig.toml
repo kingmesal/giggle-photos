@@ -1,0 +1,3 @@
+# Bun configuration
+# Bun test will only run files matching *.test.ts pattern by default
+# Playwright tests use *.spec.ts pattern, so they won't be picked up by Bun test

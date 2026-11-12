@@ -1,0 +1,138 @@
+/* Giggle Photos App Styles */
+/* Using Tailwind CSS via CDN - this file contains overrides and custom styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+#app {
+  height: 100%;
+}
+
+/* Theme-aware CSS variables */
+:root {
+  --scrollbar-track: #d4d4d8;
+  --scrollbar-thumb: #a1a1aa;
+  --scrollbar-thumb-hover: #71717a;
+  --range-track: #d4d4d8;
+}
+
+.dark {
+  --scrollbar-track: #27272a;
+  --scrollbar-thumb: #52525b;
+  --scrollbar-thumb-hover: #71717a;
+  --range-track: #52525b;
+}
+
+/* ── Semantic color tokens ── */
+:root {
+  --fg: #18181b; /* zinc-900 — headings */
+  --fg-2: #27272a; /* zinc-800 — labels */
+  --fg-3: #3f3f46; /* zinc-700 — body text */
+  --fg-muted: #52525b; /* zinc-600 — DARKENED from zinc-500 for readability */
+  --fg-faint: #a1a1aa; /* zinc-400 — very faint */
+  --surface: #ebebef; /* darker zinc — page bg */
+  --surface-card: #f4f4f5; /* zinc-100 — card/panel bg */
+  --surface-inset: #d4d4d8; /* zinc-300 — controls/badges bg */
+  --surface-hover: #e4e4e7; /* zinc-200 — hover bg */
+  --surface-active: #d4d4d8; /* zinc-300 — active hover bg */
+  --edge: #d4d4d8; /* zinc-300 — borders */
+  --accent-green: #059669; /* emerald-600 */
+  --accent-blue: #2563eb; /* blue-600 */
+  --accent-amber: #d97706; /* amber-600 */
+  --accent-red: #dc2626; /* red-600 */
+}
+
+.dark {
+  --fg: #f4f4f5; /* zinc-100 */
+  --fg-2: #e4e4e7; /* zinc-200 */
+  --fg-3: #d4d4d8; /* zinc-300 */
+  --fg-muted: #a1a1aa; /* zinc-400 */
+  --fg-faint: #71717a; /* zinc-500 */
+  --surface: #18181b; /* zinc-900 */
+  --surface-card: #27272a; /* zinc-800 */
+  --surface-inset: #3f3f46; /* zinc-700 */
+  --surface-hover: #27272a; /* zinc-800 */
+  --surface-active: #52525b; /* zinc-600 */
+  --edge: #3f3f46; /* zinc-700 */
+  --accent-green: #34d399; /* emerald-400 */
+  --accent-blue: #60a5fa; /* blue-400 */
+  --accent-amber: #fbbf24; /* amber-400 */
+  --accent-red: #f87171; /* red-400 */
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Range input custom styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  background: var(--range-track);
+  border-radius: 4px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  margin-top: -5px;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 8px;
+  background: var(--range-track);
+  border-radius: 4px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: none;
+}
+
+/* Toggle switch transitions */
+button.relative span {
+  transition:
+    left 0.2s ease-in-out,
+    right 0.2s ease-in-out;
+}
