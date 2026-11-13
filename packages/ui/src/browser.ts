@@ -3,11 +3,13 @@
  * Does NOT include any Node.js dependencies
  */
 
-// Interim Lucide renderer for legacy icon markup (removed with Sigment, RFD-004)
-export { startIconShim } from "./icons/icon-shim";
-// Layout components
-export { AppLayout } from "./layout/AppLayout";
-export { Sidebar } from "./layout/Sidebar";
+export { mountApp } from "./app/mount";
+export { FoldersScreen } from "./screens/folders/FoldersScreen";
+// Views
+export { ProcessingScreen } from "./screens/processing/ProcessingScreen";
+// App root (React)
+export { ResultsScreen } from "./screens/results/ResultsScreen";
+export { SettingsScreen } from "./screens/settings/SettingsScreen";
 export {
   type AppInfo,
   type AppInfoRPC,
@@ -23,6 +25,7 @@ export {
   openDatabaseFolder,
   resetApplication,
 } from "./services/database-service";
+export { initFoldersService } from "./services/folders-service";
 export {
   getLogger,
   initLoggerService,
@@ -35,6 +38,8 @@ export {
   type LogsRPC,
   selectLogsFolder,
 } from "./services/logs-service";
+export { initProcessingService } from "./services/processing-view-service";
+export { formatGpsCoords, initResultsService, setFileServerPort } from "./services/review-service";
 // Services
 export {
   checkTrashAvailable,
@@ -58,9 +63,3 @@ export {
 } from "./services/takeout-service";
 // State
 export { currentView, type NavItem, navItems, navigateTo, settingsNavItem, type ViewName } from "./state/navigation";
-export { FoldersView, initFoldersService } from "./views/FoldersView";
-// Views
-export { initProcessingService, ProcessingView } from "./views/ProcessingView";
-export { initResultsService, ResultsView } from "./views/ResultsView";
-export { formatGpsCoords, setFileServerPort } from "./views/ReviewSignals";
-export { SettingsView } from "./views/SettingsView";

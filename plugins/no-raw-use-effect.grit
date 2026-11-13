@@ -1,0 +1,22 @@
+// Effect gate for the UI (RFD-004). Scoped by the `includes` beside its entry in biome.jsonc.
+//
+// An effect syncs a component with something outside React. Loading data is not that, a call a person
+// triggers is not that, and reacting to an answer is not that, so each has its own tool: `useRead` and
+// `useAction` from packages/ui/src/external/, and plain render logic or event handlers. An effect that
+// really does sync with an outside system (an AbortController, a timer, a DOM API) lives in a hook named
+// for it, in its own file under packages/ui/src/external/, which biome.jsonc excludes with the system it
+// syncs with written beside the exclusion.
+language js
+
+or {
+  `useEffect($...)`,
+  `useEffect<$_>($...)`,
+  `useLayoutEffect($...)`,
+  `useLayoutEffect<$_>($...)`,
+  `$_.useEffect($...)`,
+  `$_.useEffect<$_>($...)`,
+  `$_.useLayoutEffect($...)`,
+  `$_.useLayoutEffect<$_>($...)`
+} as $call where {
+  register_diagnostic(span=$call, message="A raw effect. Load data with useRead, run a call with useAction, derive values during render, and respond to clicks in the handler. An effect that syncs with something outside React goes in a hook named for it, in its own file under packages/ui/src/external/, excluded in biome.jsonc.")
+}

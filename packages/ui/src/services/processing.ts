@@ -80,6 +80,11 @@ export function initReviewService(rpc: ReviewRPC): void {
   log.debug("Review service initialized with RPC");
 }
 
+/** Forget the RPC client (tests: back to the dev-preview mock data). */
+export function clearReviewService(): void {
+  rpcClient = null;
+}
+
 /**
  * Check if RPC is available
  */

@@ -1,0 +1,3 @@
+[test]
+# DOM for React Testing Library (happy-dom), registered before any test file loads.
+preload = ["./src/test-setup.ts"]

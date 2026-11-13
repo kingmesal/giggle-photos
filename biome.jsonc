@@ -6,15 +6,30 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**",
-      "!**/node_modules",
-      "!**/dist",
-      "!**/worker",
-      "!**/*.d.ts"
-    ],
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/worker", "!**/*.d.ts", "!**/lint-fixtures"],
     "ignoreUnknown": false
   },
+  // RFD-004 effect gate: no raw useEffect/useLayoutEffect in UI code. Each exclusion below is one hook
+  // that genuinely syncs with something outside React, with that system named beside it.
+  // packages/ui/src/lint-gate.test.ts runs the rule over lint-fixtures/ so it cannot silently stop working.
+  "plugins": [
+    {
+      "path": "plugins/no-raw-use-effect.grit",
+      "includes": [
+        "**/packages/ui/src/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        // useRead: aborts superseded reads (AbortController) and drops answers after unmount
+        "!**/packages/ui/src/external/use-read.ts",
+        // useAction: tracks unmount so late RPC answers set no state
+        "!**/packages/ui/src/external/use-action.ts",
+        // useInterval: a timer (setInterval) the browser owns
+        "!**/packages/ui/src/external/use-interval.ts",
+        // useDocumentKeys: keyboard listeners on document (review shortcuts)
+        "!**/packages/ui/src/external/use-document-keys.ts"
+      ]
+    }
+  ],
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,

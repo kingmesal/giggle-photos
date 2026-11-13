@@ -5,6 +5,7 @@
     "module": "ESNext",
     "lib": ["ES2022"],
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     "types": ["@types/bun"],
     "resolveJsonModule": true,
     "allowJs": true,

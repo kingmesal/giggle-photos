@@ -1,35 +1,37 @@
 /**
- * Navigation state management using Sigment signals
+ * Navigation state: which screen is shown. An external store, so any module can navigate and React
+ * components re-render through useCurrentView().
  */
-import { signal } from "sigment";
+import { createStore, useStore } from "../external/store";
 
 /** Available views in the application */
 export type ViewName = "processing" | "duplicates" | "folders" | "settings";
 
-/** Navigation state - returns [getter, setter] tuple */
-const [getView, setView] = signal<ViewName>("folders");
+const view = createStore<ViewName>("folders");
 
-/** Get the current view */
+/** Get the current view (non-reactive read). */
 export function currentView(): ViewName {
-  return getView();
+  return view.get();
 }
 
-/** Navigation items configuration */
+/** Current view, re-rendering on change. */
+export function useCurrentView(): ViewName {
+  return useStore(view);
+}
+
+/** Navigate to a specific view */
+export function navigateTo(next: ViewName): void {
+  view.set(next);
+}
+
 export interface NavItem {
   id: ViewName;
   label: string;
-  icon: string;
 }
 
 export const navItems: NavItem[] = [
-  { id: "folders", label: "Folders", icon: "fa-folders" },
-  { id: "processing", label: "Processing", icon: "fa-list-check" },
-  { id: "duplicates", label: "Duplicates", icon: "fa-clone" },
+  { id: "folders", label: "Folders" },
+  { id: "processing", label: "Processing" },
+  { id: "duplicates", label: "Duplicates" },
 ];
-
-export const settingsNavItem: NavItem = { id: "settings", label: "Settings", icon: "fa-gear" };
-
-/** Navigate to a specific view */
-export function navigateTo(view: ViewName): void {
-  setView(view);
-}
+export const settingsNavItem: NavItem = { id: "settings", label: "Settings" };

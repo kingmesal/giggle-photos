@@ -5,8 +5,6 @@
 
 // Use browser entry point to avoid Node.js dependencies
 import {
-  AppLayout,
-  FoldersView,
   getLogger,
   initAppInfoService,
   initClipService,
@@ -19,14 +17,10 @@ import {
   initSettingsService,
   initSystemHealthService,
   initTakeoutService,
-  ProcessingView,
-  ResultsView,
-  SettingsView,
+  mountApp,
   setFileServerPort,
-  startIconShim,
 } from "@giggle-photos/ui/browser";
 import Electrobun, { Electroview } from "electrobun/view";
-import { mount } from "sigment";
 import type { GigglePhotosRPC } from "../bun/rpc-types";
 
 // Create RPC client for communicating with main process
@@ -68,20 +62,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initSettingsService({
       getSettings: async () => {
         try {
-          const result = await getSettingsRpc({});
-          return result as {
-            logLevel: string;
-            useGlobalLogLevel: boolean;
-            loggerLevels: Record<string, string>;
-            logToFile: boolean;
-            similarityThreshold: number;
-            parallelWorkers: number;
-            moveToTrash: boolean;
-            reviewGridSize: string;
-            compareViewMode: string;
-            themeMode: string;
-            allowDeleteAll: boolean;
-          };
+          // Core AppSettings: every field passes through (no hand-maintained field list).
+          return await getSettingsRpc({});
         } catch (error) {
           log.error("Failed to get settings", error);
           throw error;
@@ -89,23 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       saveSettings: async (settings) => {
         try {
-          const result = await saveSettingsRpc(settings as Parameters<typeof saveSettingsRpc>[0]);
-          return result as {
-            success: boolean;
-            settings: {
-              logLevel: string;
-              useGlobalLogLevel: boolean;
-              loggerLevels: Record<string, string>;
-              logToFile: boolean;
-              similarityThreshold: number;
-              parallelWorkers: number;
-              moveToTrash: boolean;
-              reviewGridSize: string;
-              compareViewMode: string;
-              themeMode: string;
-              allowDeleteAll: boolean;
-            };
-          };
+          return await saveSettingsRpc(settings as Parameters<typeof saveSettingsRpc>[0]);
         } catch (error) {
           log.error("Failed to save settings", error);
           throw error;
@@ -676,20 +642,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  startIconShim();
-
   const container = document.getElementById("app");
   if (container) {
-    // Mount the main application layout with available views
-    mount(
-      container,
-      AppLayout({
-        settings: SettingsView,
-        folders: FoldersView,
-        processing: ProcessingView,
-        duplicates: ResultsView,
-      }),
-    );
+    mountApp(container);
     log.debug("App rendered successfully");
   } else {
     log.error("App container not found");

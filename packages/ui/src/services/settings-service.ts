@@ -7,8 +7,34 @@ import { getLogger } from "./logger-service";
 
 const log = getLogger("ui:settings");
 
-/** Settings shape - matches AppSettings from core */
-export interface Settings {
+/** ONNX execution provider for CLIP; anything but CPU falls back to CPU when unavailable. */
+export type ClipExecutionProvider = "cpu" | "coreml" | "dml" | "cuda";
+
+/** Removal settings (RFD-003): quarantine before trash/delete. */
+export interface RemovalSettings {
+  /** Removed files move to a quarantine folder (restorable). Takes precedence over moveToTrash. */
+  quarantineEnabled: boolean;
+  /** Quarantine folder; empty = default under app data. */
+  quarantinePath: string;
+}
+
+/** CLIP visual similarity settings (RFD-002). Distances are cosine distances (0 = identical). */
+export interface ClipSettings {
+  clipEnabled: boolean;
+  clipExecutionProvider: ClipExecutionProvider;
+  clipThreads: number;
+  clipStrongMaxDistance: number;
+  clipReviewMaxDistance: number;
+  clipSimilarShotsEnabled: boolean;
+  clipStoreMaxDistance: number;
+  clipTopK: number;
+}
+
+/**
+ * Settings shape - matches AppSettings from core. The removal and CLIP fields are optional here only so
+ * RPC wiring that predates them still type-checks; loadSettings fills them from defaults.
+ */
+export interface Settings extends Partial<RemovalSettings>, Partial<ClipSettings> {
   logLevel: string;
   useGlobalLogLevel: boolean;
   loggerLevels: Record<string, string>;
@@ -23,8 +49,11 @@ export interface Settings {
   allowDeleteAll: boolean;
 }
 
+/** Settings with every field present (what loadSettings and getDefaultSettings return). */
+export type CompleteSettings = Settings & RemovalSettings & ClipSettings;
+
 /** Default settings values */
-const defaultSettings: Settings = {
+const defaultSettings: CompleteSettings = {
   logLevel: "info",
   useGlobalLogLevel: true,
   loggerLevels: {},
@@ -32,6 +61,16 @@ const defaultSettings: Settings = {
   similarityThreshold: 5,
   parallelWorkers: 4,
   moveToTrash: true,
+  quarantineEnabled: true,
+  quarantinePath: "",
+  clipEnabled: true,
+  clipExecutionProvider: "cpu",
+  clipThreads: 4,
+  clipStrongMaxDistance: 0.02,
+  clipReviewMaxDistance: 0.06,
+  clipSimilarShotsEnabled: false,
+  clipStoreMaxDistance: 0.12,
+  clipTopK: 64,
   reviewGridSize: "md",
   compareViewMode: "balanced",
   themeMode: "dark",
@@ -68,15 +107,16 @@ export function hasRPC(): boolean {
  * Load settings from storage
  * Uses RPC if available, otherwise falls back to localStorage
  */
-export async function loadSettings(): Promise<Settings> {
+export async function loadSettings(): Promise<CompleteSettings> {
   if (rpcClient) {
     try {
       const settings = await rpcClient.getSettings();
       log.debug("Settings loaded via RPC", settings);
-      return settings;
+      // Defaults fill any field an older backend does not send.
+      return { ...defaultSettings, ...settings };
     } catch (error) {
       log.error("Failed to load settings via RPC", error);
-      return defaultSettings;
+      return { ...defaultSettings };
     }
   }
 
@@ -93,7 +133,7 @@ export async function loadSettings(): Promise<Settings> {
   }
 
   log.debug("Using default settings");
-  return defaultSettings;
+  return { ...defaultSettings };
 }
 
 /**
@@ -149,6 +189,6 @@ export async function checkTrashAvailable(): Promise<TrashCheckResult> {
 /**
  * Get default settings
  */
-export function getDefaultSettings(): Settings {
+export function getDefaultSettings(): CompleteSettings {
   return { ...defaultSettings };
 }

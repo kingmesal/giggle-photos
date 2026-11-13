@@ -1,7 +1,8 @@
 # RFD-004: Rewrite the UI in React (on Electrobun 2.x), Without `useEffect`
 
 ## Status
-Draft — 2026-11-12
+Implemented 2026-11-13: all screens in React, Sigment removed. RFD-002/003 screens beyond parity
+(CLIP review groups, quarantine restore, immich-go report, setup screen) remain.
 
 ## Problem
 
@@ -112,6 +113,19 @@ New, from RFD-002/003:
 4. Delete Sigment, its type shims (`sigment.d.ts`), the interim `icons/icon-shim.ts` and the
    `sigment` / `lucide` dependencies; update `CLAUDE.md`.
 5. Build the RFD-002/003 screens on the new foundation.
+
+## Implementation notes (2026-11-13)
+
+- Migration path as planned: a React shell first, old screens bridged, then one screen at a time,
+  E2E green after each step; then Sigment, its type shims, the icon shim and the vanilla `lucide`
+  package deleted.
+- Effect gate: `plugins/no-raw-use-effect.grit` (adapted for this project), scoped in `biome.jsonc`;
+  `lint-fixtures/no-raw-use-effect.tsx` + `packages/ui/src/lint-gate.test.ts` pin it (7 findings).
+- In-house `useRead` / `useAction` / `useInterval` / `useDocumentKeys` and a `useSyncExternalStore`
+  store in `packages/ui/src/external/`, the only files allowed to call `useEffect`.
+- Routing: a navigation store (no router). Large review groups use TanStack Virtual (> 120 files).
+- Tailwind is still loaded from its CDN script at runtime (as before the rewrite); building the CSS at
+  build time would make the app render styled offline.
 
 ## Alternatives Considered
 

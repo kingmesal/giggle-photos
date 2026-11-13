@@ -12,7 +12,7 @@ Giggle Photos App — A local-only, cross-platform desktop application for detec
 | ---------- | ----------------------------------------------- |
 | Runtime    | Bun (>=1.0.0)                                   |
 | Desktop    | Electrobun                                      |
-| UI         | Sigment (signals-based reactive) + Tailwind CSS |
+| UI         | React 19 + Tailwind CSS (lucide-react icons)    |
 | Database   | SQLite (bun:sqlite) + Kysely ORM                |
 | Validation | Zod (schema source of truth)                    |
 | Testing    | Bun (unit), Playwright (E2E)                    |
@@ -49,11 +49,13 @@ packages/core/          # Business logic, DB, schemas (no UI deps)
   src/scan/             # Filesystem scanning, hashing
   src/config/           # Settings, environment, app paths
 
-packages/ui/            # Sigment UI components (RPC-only coupling)
-  src/views/            # Main views (Folders, Processing, Settings)
-  src/layout/           # Layout components
-  src/services/         # RPC client wrappers
-  src/state/            # Sigment signals
+packages/ui/            # React UI (RPC-only coupling to core)
+  src/app/              # Root: mountApp, screen registry
+  src/screens/          # Screens: folders, processing, results, settings
+  src/layout/           # AppLayout, Sidebar
+  src/external/         # The only hooks allowed to use useEffect (see below)
+  src/services/         # RPC client wrappers (with no-RPC fallbacks for E2E)
+  src/state/            # Cross-screen stores (navigation, theme, review events)
 
 tests/e2e/              # Playwright and Bun E2E tests
 ```
@@ -115,20 +117,37 @@ const scanFolders = db.getScanFolderProvider();
 - Access tables through providers only
 - Prefer explicit column selects over `selectAll()`
 
-## Sigment UI Patterns
+## React UI Patterns (RFD-004)
 
-```typescript
-// Signals for reactive state
-const [getCount, setCount] = signal(0);
+**No raw `useEffect` / `useLayoutEffect`.** A Biome GritQL plugin (`plugins/no-raw-use-effect.grit`,
+scoped in `biome.jsonc`) fails the build on any call in `packages/ui/src`, except the files under
+`src/external/` that genuinely sync with something outside React (each excluded with a comment).
 
-// HTML elements are globals - do NOT import them
-export function Counter() {
-  return div({},
-    () => span({}, `Count: ${getCount()}`),  // Reactive: wrap in function
-    button({ onclick: () => setCount(getCount() + 1) }, "Increment")
-  );
+| Need | Do this |
+|---|---|
+| Value derived from props/state | Compute during render (`useMemo` only if measured slow) |
+| Respond to a user action | Do it in the event handler |
+| Load data over RPC | `useRead(key, read)` from `src/external/use-read.ts` (key it; change the key to re-read) |
+| Run an RPC call a person triggers | `useAction(fn)` from `src/external/use-action.ts` |
+| Polling / timers / document keys | `useInterval`, `useDocumentKeys` from `src/external/` |
+| State shared across screens | A store from `src/external/store.ts` (`createStore` + `useStore`) |
+| Reset state when an entity changes | Remount with `key={entityId}` |
+| Focus/measure a DOM node | Ref callback |
+
+```tsx
+import { useAction } from "../external/use-action";
+import { useRead } from "../external/use-read";
+
+export function FolderCount({ version }: { version: number }) {
+  const folders = useRead(`folders:${version}`, () => listFolders());
+  const rescan = useAction((id: number) => scanFolderQuick(id));
+  if (folders.loading) return <span>Loading…</span>;
+  return <button type="button" onClick={() => rescan.run(1)}>{folders.value?.length ?? 0} folders</button>;
 }
 ```
+
+`packages/ui/src/lint-gate.test.ts` runs the rule over `lint-fixtures/` so it cannot silently stop
+working. Icons: import Lucide components from `lucide-react` directly.
 
 ## Code Standards
 
@@ -187,10 +206,5 @@ The file `packages/core/er-diagram.html` contains a Mermaid-based entity relatio
 
 ## Icons
 
-Icons are [Lucide](https://lucide.dev) (ISC). This is a public repo: never add
-commercially licensed assets (e.g. Font Awesome Pro).
-
-The Sigment views still write legacy markup (`i({ class: "fadr fa-trash" })`);
-`packages/ui/src/icons/icon-shim.ts` renders those as Lucide SVGs. Add any new
-`fa-*` class to its `ICON_MAP` (a test fails otherwise). The shim is deleted with
-Sigment in RFD-004, where views use `lucide-react` directly.
+Icons are [Lucide](https://lucide.dev) (ISC), imported from `lucide-react`. This is a public repo:
+never add commercially licensed assets (e.g. Font Awesome Pro).

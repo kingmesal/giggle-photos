@@ -1,8 +1,7 @@
 /**
- * Theme state — manages light/dark mode toggle with persistence.
+ * Theme state: light/dark mode, applied to the document root and persisted to settings.
  */
-
-import { signal } from "sigment";
+import { createStore, useStore } from "../external/store";
 import { getLogger } from "../services/logger-service";
 import { saveSettings } from "../services/settings-service";
 
@@ -10,32 +9,32 @@ const log = getLogger("ui:theme");
 
 export type ThemeMode = "light" | "dark";
 
-const [getThemeMode, _setThemeMode] = signal<ThemeMode>("dark");
+const theme = createStore<ThemeMode>("dark");
 
-/** Apply theme class to document root */
 function applyTheme(mode: ThemeMode): void {
-  if (mode === "dark") {
-    document.documentElement.classList.add("dark");
-  } else {
-    document.documentElement.classList.remove("dark");
-  }
+  document.documentElement.classList.toggle("dark", mode === "dark");
 }
 
 /** Initialize theme from loaded settings (call on startup) */
 export function initTheme(mode: string): void {
   const validMode: ThemeMode = mode === "light" ? "light" : "dark";
-  _setThemeMode(validMode);
+  theme.set(validMode);
   applyTheme(validMode);
   log.debug("Theme initialized", { mode: validMode });
 }
 
 /** Toggle between light and dark mode, persist to settings */
 export function toggleTheme(): void {
-  const current = getThemeMode();
-  const next: ThemeMode = current === "dark" ? "light" : "dark";
-  _setThemeMode(next);
+  const next: ThemeMode = theme.get() === "dark" ? "light" : "dark";
+  theme.set(next);
   applyTheme(next);
   saveSettings({ themeMode: next }).catch((e) => log.warn("Failed to save theme", e));
 }
 
-export { getThemeMode };
+export function getThemeMode(): ThemeMode {
+  return theme.get();
+}
+
+export function useThemeMode(): ThemeMode {
+  return useStore(theme);
+}
