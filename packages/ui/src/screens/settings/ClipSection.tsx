@@ -7,6 +7,7 @@
 import { ChevronDown, ChevronRight, Info, ScanEye } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import type { ClipExecutionProvider } from "../../services/settings-service";
+import { activePreset, CLIP_PRESETS } from "./clip-presets";
 import { type ClipDistanceField, formatDistance, setClipDistance } from "./clip-thresholds";
 import { SettingsRow, SettingsSection, Toggle } from "./controls";
 import { DistanceSlider } from "./DistanceSlider";
@@ -20,6 +21,35 @@ const PROVIDER_OPTIONS: { value: ClipExecutionProvider; label: string }[] = [
   { value: "dml", label: "DirectML (Windows)" },
   { value: "cuda", label: "CUDA (NVIDIA)" },
 ];
+
+/** Giggle / Immich presets: fill the thresholds in (Save applies them, like any setting). */
+function Presets({ draft, update }: SectionProps): ReactNode {
+  const active = activePreset(draft);
+  return (
+    <fieldset aria-label="CLIP presets">
+      <legend className="text-sm text-fg-2">Presets</legend>
+      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {CLIP_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            aria-pressed={active === p.id}
+            className={`text-left px-3 py-2 rounded-lg border text-sm ${
+              active === p.id
+                ? "border-violet-500/60 bg-violet-500/15 text-fg"
+                : "border-edge bg-surface-inset hover:bg-surface-active text-fg-2"
+            }`}
+            onClick={() => update({ ...p.values })}
+          >
+            <span className="font-medium">{p.label}</span>
+            <span className="block text-xs text-fg-muted mt-0.5">{p.description}</span>
+          </button>
+        ))}
+      </div>
+      {active === null && <p className="mt-1 text-xs text-fg-faint">Custom thresholds</p>}
+    </fieldset>
+  );
+}
 
 function Thresholds({ draft, update }: SectionProps): ReactNode {
   const setDistance = (field: ClipDistanceField, value: number) => update(setClipDistance(draft, field, value));
@@ -129,6 +159,7 @@ export function ClipSection({ draft, update }: SectionProps): ReactNode {
           />
         }
       />
+      <Presets draft={draft} update={update} />
       <div>
         <button
           type="button"
