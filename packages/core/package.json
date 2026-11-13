@@ -42,7 +42,7 @@
   "scripts": {
     "build": "echo 'Core package sources are used directly - no build needed'",
     "test": "bun run test:parallel && bun run test:serial",
-    "test:parallel": "LOG_LEVEL=off bun test src/config src/zod src/db src/review src/takeout src/util src/clip src/actions src/dates src/library",
+    "test:parallel": "LOG_LEVEL=off bun test src/config src/zod src/db src/review src/takeout src/util src/clip src/actions src/dates src/library src/logging",
     "test:serial": "for f in src/scan/*.test.ts; do LOG_LEVEL=off bun test \"$f\" || exit 1; done",
     "typecheck": "tsc --build",
     "clean": "rm -rf dist node_modules .turbo",

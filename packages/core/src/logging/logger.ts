@@ -259,6 +259,31 @@ export function flushLoggerConfig(): void {
   flushPendingLoggers();
 }
 
+/** One log argument as text: errors with their code and message, objects as JSON. */
+function formatLogArg(value: unknown): string {
+  if (value instanceof Error) {
+    const code = (value as NodeJS.ErrnoException).code;
+    return `${value.name}${code ? ` ${code}` : ""}: ${value.message}`;
+  }
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, (_k, v) => (v instanceof Error ? formatLogArg(v) : v));
+  } catch {
+    return String(value);
+  }
+}
+
+/**
+ * The message plus every extra argument (the error, the context object). The file log used to keep
+ * only the first argument, so "Failed to … for X:" lines lost their reason.
+ */
+export function formatLogArgs(logObj: Record<string, unknown>): string {
+  const args: unknown[] = [];
+  for (let i = 0; i in logObj; i++) args.push(logObj[i]);
+  if (args.length === 0) return JSON.stringify(logObj);
+  return args.map(formatLogArg).join(" ");
+}
+
 // Attach file transport when logToFile is enabled
 function attachFileTransport(): void {
   try {
@@ -284,8 +309,7 @@ function attachFileTransport(): void {
         const date = meta.date instanceof Date ? meta.date : new Date();
         const level = meta.logLevelName ?? "INFO";
         const name = meta.name ?? "";
-        const msg = logObj[0] != null ? String(logObj[0]) : JSON.stringify(logObj);
-        const line = `[${date.toISOString()}] ${level} [${name}] ${msg}\n`;
+        const line = `[${date.toISOString()}] ${level} [${name}] ${formatLogArgs(logObj)}\n`;
         appendFileSync(logFile, line);
       } catch {
         // Ignore file write errors
