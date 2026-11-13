@@ -47,6 +47,26 @@ describe("ResultsScreen", () => {
     expect(screen.getByTitle("Small").className).not.toContain("bg-blue-600");
   });
 
+  test("Visually Similar tab loads clip groups: count badge, distances, nothing preselected", async () => {
+    const data = twoGroups();
+    data.summary = { ...data.summary, pendingClip: 1 };
+    const { rpc } = await renderWith(data);
+    expect(within(button(/Visually Similar/)).getByText("1")).toBeTruthy();
+    data.groups = [{ ...data.groups[0], groupKey: "clip:7", method: "clip", minClipDistance: 0.031 } as never];
+    data.files["clip:7"] = {
+      files: [file(7, { clipDistance: 0.031 }), file(8, { clipDistance: 0.031 })],
+      suggestion: { fileId: 0, keepFileIds: [], reason: "Visual matches are for review only" },
+    };
+    fireEvent.click(button(/Visually Similar/));
+    await waitFor(() => expect(screen.getByTestId("clip-review-note")).toBeTruthy());
+    expect(rpc.getPendingGroups.mock.calls.at(-1)?.[0]).toMatchObject({ method: "clip" });
+    expect(rpc.getLogicalGroupFiles.mock.calls.at(-1)?.[0]).toEqual({ method: "clip", groupKey: "clip:7" });
+    expect(screen.getByTestId("clip-review-note").textContent).toContain("Closest: 0.031");
+    expect(screen.getAllByText("v=0.031")).toHaveLength(2);
+    expect(screen.getByText("No decisions yet")).toBeTruthy();
+    expect(screen.queryByText("Suggested Keep")).toBeNull();
+  });
+
   test("pre-fills keep for every suggested keepFileId and delete for the rest", async () => {
     await renderWith();
     expect(cards()).toHaveLength(3);

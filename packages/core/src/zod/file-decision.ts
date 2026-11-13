@@ -18,6 +18,7 @@ export const FileDecisionMethod = z.union([
   z.literal("sha256").describe("Exact file hash match"),
   z.literal("content_hash").describe("Image content hash (ignores metadata)"),
   z.literal("phash").describe("Perceptual hash (near-duplicate detection)"),
+  z.literal("clip").describe("CLIP visual similarity (review-only, never preselected)"),
 ]);
 export type FileDecisionMethod = z.infer<typeof FileDecisionMethod>;
 

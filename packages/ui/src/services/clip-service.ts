@@ -38,15 +38,34 @@ export interface ClipStageStats {
 export interface ClipSetupState {
   status: ClipModelStatus | null;
   importError: string | null;
+  /** Setup was needed this session (a download, check or failure was seen). */
+  setupNeeded: boolean;
+  /** The person closed the first-run setup screen (the processing banner keeps showing progress). */
+  setupDismissed: boolean;
 }
 
-const INITIAL: ClipSetupState = { status: null, importError: null };
+const INITIAL: ClipSetupState = { status: null, importError: null, setupNeeded: false, setupDismissed: false };
+const NEEDS_SETUP = new Set<ClipModelStatus["state"]>(["downloading", "verifying", "error"]);
 const store = createStore<ClipSetupState>(INITIAL);
 let rpcClient: ClipRPC | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
 
 function patch(next: Partial<ClipSetupState>): void {
-  store.set((prev) => ({ ...prev, ...next }));
+  store.set((prev) => ({
+    ...prev,
+    ...next,
+    setupNeeded: prev.setupNeeded || (next.status ? NEEDS_SETUP.has(next.status.state) : false),
+  }));
+}
+
+/** Show the first-run setup screen: setup was needed this session and the person has not closed it. */
+export function showClipSetup(s: ClipSetupState): boolean {
+  return s.setupNeeded && !s.setupDismissed && s.status !== null;
+}
+
+/** Close the first-run setup screen; setup carries on in the background. */
+export function dismissClipSetup(): void {
+  patch({ setupDismissed: true });
 }
 
 function stopPolling(): void {

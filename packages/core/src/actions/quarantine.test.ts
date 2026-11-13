@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { MANIFEST_NAME, quarantineFile, quarantinePath, restoreQuarantine } from "./quarantine";
+import { MANIFEST_NAME, quarantineFile, quarantinePath, quarantineStatus, restoreQuarantine } from "./quarantine";
 
 let base: string;
 let library: string;
@@ -62,6 +62,17 @@ describe("quarantine", () => {
     expect(readFileSync(a, "utf-8")).toBe("A");
     expect(result.problems[0]).toMatch(/original path is occupied/);
     expect(readFileSync(b, "utf-8")).toBe("someone put a new file here");
+  });
+
+  test("status counts what is still in quarantine, by kind", async () => {
+    expect(await quarantineStatus(quarantine)).toEqual({ files: 0, sidecars: 0 });
+    await quarantineFile(quarantine, library, put("x/A.jpg"), "media");
+    await quarantineFile(quarantine, library, put("x/B.jpg"), "media");
+    await quarantineFile(quarantine, library, put("x/A.jpg.json"), "sidecar");
+    rmSync(join(quarantine, "x", "B.jpg")); // removed by hand
+    expect(await quarantineStatus(quarantine)).toEqual({ files: 1, sidecars: 1 });
+    await restoreQuarantine(quarantine);
+    expect(await quarantineStatus(quarantine)).toEqual({ files: 0, sidecars: 0 });
   });
 
   test("restore with no manifest is a no-op", async () => {

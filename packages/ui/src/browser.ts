@@ -39,6 +39,11 @@ export {
   selectLogsFolder,
 } from "./services/logs-service";
 export { initProcessingService } from "./services/processing-view-service";
+export {
+  initQuarantineService,
+  type QuarantineRPC,
+  type QuarantineStatus,
+} from "./services/quarantine-service";
 export { formatGpsCoords, initResultsService, setFileServerPort } from "./services/review-service";
 // Services
 export {

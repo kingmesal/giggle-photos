@@ -1,8 +1,8 @@
 # RFD-002: Single-Pass Analysis Pipeline + CLIP Similarity Method
 
 ## Status
-Draft — 2026-11-12. Step 1 and CLIP embeddings + matching implemented 2026-11-12; CLIP review
-integration (in RFD-004) and video frames pending.
+Draft — 2026-11-12. Step 1, CLIP embeddings + matching, and CLIP review groups implemented
+2026-11-12; video frames pending.
 
 ## Problem
 
@@ -325,8 +325,11 @@ What the numbers say:
   settings (`clipStrongMaxDistance`, `clipReviewMaxDistance`, `clipSimilarShotsEnabled`,
   `clipStoreMaxDistance`, `clipTopK`) to calibrate on the real library.
 - Model download re-verified: both pinned SHA-256 values match.
-- **Deferred:** CLIP groups in the review screens (`FileDecisionMethod "clip"`, `clip:{anchor}`
-  groups) move to RFD-004's review UI; video frames (§E) remain step 4. Distributed builds still
+- **CLIP review groups (2026-11-12):** `FileDecisionMethod "clip"` (migration 0010 rebuilds
+  `fileDecisions` to widen its CHECK), `clip:{lowest id}` connected groups of pairs at or under the
+  review cutoff, shown in a "Visually Similar" tab after the pHash tabs. Pairs already grouped by
+  SHA-256, content hash or pHash are left out so CLIP only adds what the earlier methods missed.
+  Nothing is preselected. Video frames (§E) remain step 4. Distributed builds still
   need native modules (sharp, onnxruntime-node) shipped next to the bundle (see RFD-001 findings).
 
 ## Alternatives Considered

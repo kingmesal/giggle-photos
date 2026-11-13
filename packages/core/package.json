@@ -23,6 +23,7 @@
     "./scan/duplicate-detector": "./src/scan/duplicate-detector.ts",
     "./scan/processing-pipeline": "./src/scan/processing-pipeline.ts",
     "./scan/quick-scan": "./src/scan/quick-scan.ts",
+    "./takeout/import-check": "./src/takeout/import-check.ts",
     "./takeout/takeout-report": "./src/takeout/takeout-report.ts",
     "./zod/file-decision": "./src/zod/file-decision.ts",
     "./zod/image-metadata": "./src/zod/image-metadata.ts",

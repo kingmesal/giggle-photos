@@ -5,7 +5,7 @@
  * Loading: the first visit, and every review-data version change (e.g. a folder was removed), drops the
  * cached groups and history and reloads. Returning to the screen otherwise keeps where you were.
  */
-import { Images, LoaderCircle, Trash2, TriangleAlert } from "lucide-react";
+import { ClipboardCheck, Images, LoaderCircle, Trash2, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { useRead } from "../../external/use-read";
 import { useReviewDataVersion } from "../../state/review-events";
@@ -15,6 +15,7 @@ import { ComparisonModal } from "./ComparisonModal";
 import { ConflictsDialog } from "./ConflictsDialog";
 import { referenceFile } from "./compare-meta";
 import { GroupReview } from "./GroupReview";
+import { ImportCheckDialog } from "./ImportCheckDialog";
 import { useReviewPrefs } from "./prefs";
 import { CategoryTabs, ErrorBanner, GridSizeSelector, SummaryCards } from "./ResultsToolbar";
 import { DeleteAllDialog, UnsavedChangesDialog } from "./ReviewDialogs";
@@ -74,6 +75,15 @@ function Header({ s }: { s: ReviewState }): ReactNode {
               {`Resolve Conflicts (${conflicts})`}
             </button>
           )}
+          <button
+            type="button"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-surface-inset hover:bg-surface-active text-fg-2 flex items-center gap-2"
+            onClick={() => patchReview({ dialog: "importCheck" })}
+            title="Compare an immich-go dry run with the pruned library"
+          >
+            <ClipboardCheck size="1em" />
+            Import Check
+          </button>
           <ApplyButton s={s} />
         </div>
       </div>
@@ -135,6 +145,7 @@ function Overlays({ s }: { s: ReviewState }): ReactNode {
       )}
       {s.dialog === "apply" && <ApplyConfirmDialog preview={s.applyPreview} useTrash={s.applyUseTrash} />}
       {s.dialog === "conflicts" && <ConflictsDialog />}
+      {s.dialog === "importCheck" && <ImportCheckDialog />}
       {s.dialog === "deleteAll" && <DeleteAllDialog />}
       {s.dialog === "unsaved" && <UnsavedChangesDialog />}
     </>

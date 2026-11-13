@@ -73,6 +73,8 @@ export interface ResultsSummary {
   pendingSha256: number;
   pendingContentHash: number;
   pendingPhash: number;
+  /** Absent from older summaries. */
+  pendingClip?: number;
   decidedKeep: number;
   decidedDelete: number;
 }

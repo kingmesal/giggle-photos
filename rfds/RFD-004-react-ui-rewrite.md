@@ -1,7 +1,7 @@
 # RFD-004: Rewrite the UI in React (on Electrobun 2.x), Without `useEffect`
 
 ## Status
-Implemented 2026-11-13: all screens in React, Sigment removed. RFD-002/003 screens beyond parity
+Implemented 2026-11-12: all screens in React, Sigment removed. RFD-002/003 screens beyond parity
 (CLIP review groups, quarantine restore, immich-go report, setup screen) remain.
 
 ## Problem
@@ -114,7 +114,7 @@ New, from RFD-002/003:
    `sigment` / `lucide` dependencies; update `CLAUDE.md`.
 5. Build the RFD-002/003 screens on the new foundation.
 
-## Implementation notes (2026-11-13)
+## Implementation notes (2026-11-12)
 
 - Migration path as planned: a React shell first, old screens bridged, then one screen at a time,
   E2E green after each step; then Sigment, its type shims, the icon shim and the vanilla `lucide`
@@ -127,6 +127,11 @@ New, from RFD-002/003:
 - Tailwind (v3.4, same utilities the old CDN script provided) is compiled at build time by
   `apps/desktop/scripts/build-css.ts` (Electrobun preBuild and the E2E server), so the app renders
   styled offline. Config: `apps/desktop/tailwind.config.js`.
+- Screens added after the port: the "Visually Similar" review tab for CLIP groups; Settings → Removal
+  quarantine status with Restore All; Review → Import Check (pasted immich-go dry-run report vs the
+  library); and the first-run CLIP setup screen (`screens/setup/ClipSetupScreen.tsx`), shown over
+  the app while the model downloads, is checked or fails. It offers Retry, Import model file… and
+  Continue in background, and the processing banner keeps showing progress after it is closed.
 
 ## Alternatives Considered
 

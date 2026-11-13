@@ -3,6 +3,7 @@
  * This file runs in the webview context (browser)
  */
 
+import type { ReviewSummary } from "@giggle-photos/core/review/review-queries";
 // Use browser entry point to avoid Node.js dependencies
 import {
   getLogger,
@@ -13,6 +14,7 @@ import {
   initLoggerService,
   initLogsService,
   initProcessingService,
+  initQuarantineService,
   initResultsService,
   initSettingsService,
   initSystemHealthService,
@@ -120,9 +122,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const getTakeoutReportRpc = electrobun.rpc?.request?.getTakeoutReport;
-  if (getTakeoutReportRpc) {
-    initTakeoutService({ getTakeoutReport: () => getTakeoutReportRpc({}) });
+  const takeoutRequests = electrobun.rpc?.request;
+  if (takeoutRequests?.getTakeoutReport && takeoutRequests.compareImmichGoReport) {
+    initTakeoutService({
+      getTakeoutReport: () => takeoutRequests.getTakeoutReport({}),
+      compareImmichGoReport: (report) => takeoutRequests.compareImmichGoReport({ report }),
+    });
+  }
+
+  const quarantineRequests = electrobun.rpc?.request;
+  if (quarantineRequests?.getQuarantineStatus && quarantineRequests.restoreQuarantinedFiles) {
+    initQuarantineService({
+      getQuarantineStatus: () => quarantineRequests.getQuarantineStatus({}),
+      restoreQuarantinedFiles: () => quarantineRequests.restoreQuarantinedFiles({}),
+    });
   }
 
   const getSystemHealthRpc = electrobun.rpc?.request?.getSystemHealth;
@@ -480,16 +493,7 @@ document.addEventListener("DOMContentLoaded", () => {
       getReviewSummary: async () => {
         try {
           const result = await getReviewSummaryRpc({});
-          return result as {
-            pendingSha256: number;
-            pendingContentHash: number;
-            pendingPhash: number;
-            decidedKeep: number;
-            decidedDelete: number;
-            phashIdenticalPairs: number;
-            phashSimilarPairs: number;
-            conflictCount: number;
-          };
+          return result as ReviewSummary;
         } catch (error) {
           log.error("Failed to get review summary", error);
           throw error;
@@ -567,16 +571,7 @@ document.addEventListener("DOMContentLoaded", () => {
       getReviewSummary: async () => {
         try {
           const result = await getReviewSummaryForResultsRpc({});
-          return result as {
-            pendingSha256: number;
-            pendingContentHash: number;
-            pendingPhash: number;
-            decidedKeep: number;
-            decidedDelete: number;
-            phashIdenticalPairs: number;
-            phashSimilarPairs: number;
-            conflictCount: number;
-          };
+          return result as ReviewSummary;
         } catch (error) {
           log.error("Failed to get review summary", error);
           throw error;

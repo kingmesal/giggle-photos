@@ -101,6 +101,8 @@ export function buildMetaRows(keep: FileWithReviewContext, compare: FileWithRevi
   const dist = (c: FileWithReviewContext) =>
     c.phashDistance !== undefined && c.phashDistance > 0 ? String(c.phashDistance) : "—";
   if (dist(keep) !== "—" || dist(compare) !== "—") rows.push(row("pHash Distance", dist));
+  const clip = (c: FileWithReviewContext) => (c.clipDistance !== undefined ? c.clipDistance.toFixed(3) : "—");
+  if (clip(keep) !== "—" || clip(compare) !== "—") rows.push(row("Visual Distance", clip));
   return rows;
 }
 

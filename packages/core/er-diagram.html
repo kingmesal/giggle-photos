@@ -176,8 +176,8 @@ erDiagram
         INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
         INTEGER mediaFileId FK "FK → mediaFiles.id CASCADE"
         TEXT action "keep | delete"
-        TEXT method "sha256 | content_hash | phash"
-        TEXT reviewGroupKey "hash value or phash:anchorId"
+        TEXT method "sha256 | content_hash | phash | clip"
+        TEXT reviewGroupKey "hash value, phash:anchorId or clip:anchorId"
         INTEGER createdAt "unix timestamp"
     }
 

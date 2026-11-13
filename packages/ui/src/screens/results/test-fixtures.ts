@@ -44,6 +44,7 @@ export function summary(extra: Partial<ReviewSummary> = {}): ReviewSummary {
     pendingSha256: 2,
     pendingContentHash: 0,
     pendingPhash: 0,
+    pendingClip: 0,
     decidedKeep: 0,
     decidedDelete: 0,
     phashIdenticalPairs: 0,

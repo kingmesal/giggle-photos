@@ -9,11 +9,13 @@ import type {
   ReviewSummary,
 } from "@giggle-photos/core/review/review-queries";
 import type { PipelineProgress, PipelineState } from "@giggle-photos/core/scan/processing-pipeline";
+import type { ImportCheckResult } from "@giggle-photos/core/takeout/import-check";
 import type { TakeoutReport } from "@giggle-photos/core/takeout/takeout-report";
 import type { FileDecisionMethod } from "@giggle-photos/core/zod/file-decision";
 import type { ScanFolder as ScanFolderType, UpdateScanFolder } from "@giggle-photos/core/zod/scan-folder";
 import type { RPCSchema } from "electrobun/main";
 import type { AppInfo } from "./app-info";
+import type { QuarantineStatusResponse } from "./handlers/quarantine";
 
 type ClipModelStatus = ReturnType<typeof getClipModelStatus>;
 
@@ -71,6 +73,18 @@ export type GigglePhotosRPC = {
       getTakeoutReport: {
         params: Record<string, never>;
         response: TakeoutReport;
+      };
+      compareImmichGoReport: {
+        params: { report: string };
+        response: ImportCheckResult;
+      };
+      getQuarantineStatus: {
+        params: Record<string, never>;
+        response: QuarantineStatusResponse;
+      };
+      restoreQuarantinedFiles: {
+        params: Record<string, never>;
+        response: { restored: number; problems: string[] };
       };
       getClipModelStatus: {
         params: Record<string, never>;

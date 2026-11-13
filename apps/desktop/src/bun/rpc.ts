@@ -22,6 +22,7 @@ import {
   resumeProcessing,
   startProcessing,
 } from "./handlers/processing";
+import { getQuarantineStatus, restoreQuarantinedFiles } from "./handlers/quarantine";
 import {
   applyDeletionsHandler,
   getConflictsHandler,
@@ -34,7 +35,7 @@ import {
 } from "./handlers/review";
 import { checkTrashAvailable, getSettings, saveSettings, saveWindowBounds } from "./handlers/settings";
 import { getSystemHealth } from "./handlers/system-health";
-import { getTakeoutReport } from "./handlers/takeout";
+import { compareImmichGoReport, getTakeoutReport } from "./handlers/takeout";
 import type { GigglePhotosRPC } from "./rpc-types";
 
 /** RPC instance for webview-to-main communication. 30s timeout for native dialogs and DB ops. */
@@ -50,6 +51,9 @@ export const appRPC = BrowserView.defineRPC<GigglePhotosRPC>({
       getAppInfo,
       getSystemHealth,
       getTakeoutReport,
+      compareImmichGoReport,
+      getQuarantineStatus,
+      restoreQuarantinedFiles,
       getClipModelStatus,
       retryClipModelSetup,
       importClipModelFile,

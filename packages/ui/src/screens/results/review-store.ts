@@ -43,7 +43,7 @@ export interface ReviewState {
   history: HistoryEntry[];
   /** Review-data version the cache was loaded for (-1: never loaded). */
   loadedVersion: number;
-  dialog: "none" | "deleteAll" | "unsaved" | "apply" | "conflicts";
+  dialog: "none" | "deleteAll" | "unsaved" | "apply" | "conflicts" | "importCheck";
   pendingCategory: ReviewCategory | null;
   applyUseTrash: boolean;
   applyPreview: ApplyDecisionResult | null;
@@ -53,6 +53,7 @@ export const EMPTY_SUMMARY: ReviewSummary = {
   pendingSha256: 0,
   pendingContentHash: 0,
   pendingPhash: 0,
+  pendingClip: 0,
   decidedKeep: 0,
   decidedDelete: 0,
   phashIdenticalPairs: 0,
@@ -113,7 +114,7 @@ export function clearedGroup(): Partial<ReviewState> {
 }
 
 export function totalPending(summary: ReviewSummary): number {
-  return summary.pendingSha256 + summary.pendingContentHash + summary.pendingPhash;
+  return summary.pendingSha256 + summary.pendingContentHash + summary.pendingPhash + summary.pendingClip;
 }
 
 /** Pending groups in the cache, excluding skipped ones. */

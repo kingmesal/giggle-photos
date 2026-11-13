@@ -85,7 +85,7 @@ describe("ProcessingScreen after a completed run", () => {
       listLimit: 500,
     };
     const getTakeoutReport = mock(async () => report);
-    initTakeoutService({ getTakeoutReport });
+    initTakeoutService({ getTakeoutReport, compareImmichGoReport: mock(async () => ({ rows: [], events: {} })) });
     const summary = { pendingSha256: 2, pendingContentHash: 0, pendingPhash: 1, decidedKeep: 1, decidedDelete: 0 };
     initProcessingService(
       fakeRPC({ status: completed, state: pipelineState({ hasUnscannedFolders: false }), summary }),

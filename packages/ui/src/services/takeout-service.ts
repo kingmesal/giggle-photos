@@ -31,8 +31,23 @@ export interface TakeoutReport {
   listLimit: number;
 }
 
+/** Mirrors core ImportCheckResult (RFD-003 §G). */
+export interface ImportCheckRow {
+  label: string;
+  app: number | null;
+  immichGo: number | null;
+  status: "match" | "differs" | "info";
+  note: string;
+}
+
+export interface ImportCheckResult {
+  rows: ImportCheckRow[];
+  events: Record<string, number>;
+}
+
 export interface TakeoutRPC {
   getTakeoutReport: () => Promise<TakeoutReport>;
+  compareImmichGoReport: (report: string) => Promise<ImportCheckResult>;
 }
 
 let rpcClient: TakeoutRPC | null = null;
@@ -51,4 +66,15 @@ export async function loadTakeoutReport(): Promise<TakeoutReport | null> {
     log.error("Failed to load Takeout report", error);
     return null;
   }
+}
+
+/** Test helper. */
+export function clearTakeoutService(): void {
+  rpcClient = null;
+}
+
+/** Compare a pasted immich-go dry-run report with the library; throws without RPC (dev preview). */
+export async function compareImmichGoReport(report: string): Promise<ImportCheckResult> {
+  if (!rpcClient) throw new Error("The import check is only available in the desktop app");
+  return rpcClient.compareImmichGoReport(report);
 }

@@ -42,6 +42,9 @@ Files: `applyDecisions.ts` (orchestrates), `deletion-plan.ts` (pure safety rules
 - Parse Zod before all writes (missing validation = silent corruption)
 - Test migrations with existing data
 - Verify indexes exist for frequent queries
+- SQLite cannot alter a CHECK constraint: widening one means a table rebuild (copy rows, drop,
+  rename, recreate indexes), as `migrations/0010_decision_method_clip.ts` does for `fileDecisions`.
+  Test it on rows written by the previous migration (see its test).
 
 ---
 
@@ -91,6 +94,9 @@ pHash), `hash-phash.ts` (in-house DCT pHash + Hamming distance), `byte-budget.ts
   `id` (embeddings are keyed by it) and threshold re-calibration.
 - Embeddings are L2-normalised; `match.ts` relies on dot product = cosine similarity, and on TopK
   output being sorted. CLIP pairs are review-only, never preselected for deletion.
+- Review groups (`review/clip-groups.ts`) skip pairs already grouped by SHA-256, content hash or
+  pHash. The deletion planner treats a `clip:` group as only its decided files, which keeps
+  "never the last copy" stricter, not looser.
 - Keep ONNX intra-op threads bounded (default 4): "all cores" spins and costs ~10× CPU.
 - Real-model tests need `GIGGLE_TEST_CLIP_MODEL=/path/to/model.onnx`; run them after changes here.
 

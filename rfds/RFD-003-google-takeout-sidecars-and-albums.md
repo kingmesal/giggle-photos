@@ -1,8 +1,8 @@
 # RFD-003: Google Takeout Awareness — JSON Sidecars, Albums, Motion Photos
 
 ## Status
-Draft — 2026-11-12. Steps 1–4 implemented 2026-11-12 (see "Findings"); immich-go validation (step 5)
-pending.
+Draft — 2026-11-12. Steps 1–5 implemented 2026-11-12 (see "Findings"). Still to do: check the
+fixtures and the import check against a real Takeout and a real immich-go run.
 
 ## Problem
 
@@ -170,9 +170,16 @@ pair detection against an anonymized sample of the real Takeout and extend the f
   when `allowDeleteAll` is on: a group can no longer be emptied completely.
 - Quarantine is the default (`quarantineEnabled`, `quarantinePath` = `<app data>/quarantine`);
   paths mirror the location below the scan folder; `quarantine-manifest.jsonl` + `restoreQuarantine`
-  undo it (no UI button for restore yet).
+  undo it: Settings → Removal shows what is in quarantine and has a Restore All button (restored files
+  need a re-scan of their folders, since their records were removed).
 - The apply dialog runs a dry run first and shows the plan before the confirm button is enabled.
-- Step 5 (immich-go dry-run validation) remains.
+- Step 5: Review → **Import Check**. The person runs `immich-go upload from-google-photos --dry-run`
+  and pastes its output. The app parses the Event Report (immich-go v0.32 prints
+  `  <event>: <count>  (<size>)` lines; any `name: count` line is read, so new events don't break it)
+  and compares: photos and videos (exact: both count every file on disk), sidecars, media without
+  metadata, live photos, album copies merged (`discarded local duplicate`), immich-go problems, and
+  album folders that still have files. The app does not run immich-go itself: the dry run needs the
+  server URL and API key, which stay out of the app. Not yet checked against a real run.
 
 ## Alternatives Considered
 

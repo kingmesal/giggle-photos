@@ -1,5 +1,5 @@
 /** Above the group review: error banner, summary stat cards, category tabs, and the grid-size selector. */
-import { CircleAlert, CircleCheck, Clock, Eye, Fingerprint, Image, ListChecks, Trash2, X } from "lucide-react";
+import { CircleAlert, CircleCheck, Clock, Eye, Fingerprint, Image, ListChecks, ScanEye, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ReviewSummary } from "../../services/processing";
 import {
@@ -79,6 +79,7 @@ function countFor(cat: ReviewCategory, summary: ReviewSummary): number {
   if (cat === "sha256") return summary.pendingSha256;
   if (cat === "content_hash") return summary.pendingContentHash;
   if (cat === "phash_identical") return summary.phashIdenticalPairs;
+  if (cat === "clip") return summary.pendingClip;
   return summary.phashSimilarPairs;
 }
 
@@ -101,6 +102,8 @@ export function CategoryTabs({ active, summary }: { active: ReviewCategory; summ
               <Fingerprint size="1em" />
             ) : cat === "content_hash" ? (
               <Image size="1em" />
+            ) : cat === "clip" ? (
+              <ScanEye size="1em" />
             ) : (
               <Eye size="1em" />
             )}

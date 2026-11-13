@@ -227,6 +227,7 @@ export const reviewService = {
       pendingSha256: 1,
       pendingContentHash: 1,
       pendingPhash: 1,
+      pendingClip: 0,
       decidedKeep: 0,
       decidedDelete: 0,
       phashIdenticalPairs: 0,

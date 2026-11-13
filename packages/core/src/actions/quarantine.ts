@@ -74,17 +74,30 @@ export async function quarantineFile(
   return to;
 }
 
+async function readManifest(quarantineRoot: string): Promise<QuarantineEntry[]> {
+  const text = await readFile(join(quarantineRoot, MANIFEST_NAME), "utf-8").catch(() => "");
+  return text
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as QuarantineEntry);
+}
+
+/** How many recorded files are still in the quarantine (not restored or removed by hand). */
+export async function quarantineStatus(quarantineRoot: string): Promise<{ files: number; sidecars: number }> {
+  const present = new Map<string, QuarantineEntry["kind"]>();
+  for (const e of await readManifest(quarantineRoot)) {
+    if (await exists(e.to)) present.set(e.to, e.kind);
+  }
+  const kinds = [...present.values()];
+  return { files: kinds.filter((k) => k === "media").length, sidecars: kinds.filter((k) => k === "sidecar").length };
+}
+
 /**
  * Move quarantined files back to where they came from (newest first). Entries whose destination is
  * gone or whose original path is occupied again are reported, not overwritten.
  */
 export async function restoreQuarantine(quarantineRoot: string): Promise<{ restored: number; problems: string[] }> {
-  const text = await readFile(join(quarantineRoot, MANIFEST_NAME), "utf-8").catch(() => "");
-  const entries = text
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as QuarantineEntry)
-    .reverse();
+  const entries = (await readManifest(quarantineRoot)).reverse();
   const problems: string[] = [];
   let restored = 0;
   for (const e of entries) {

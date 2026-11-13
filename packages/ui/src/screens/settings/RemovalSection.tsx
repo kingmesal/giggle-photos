@@ -6,6 +6,7 @@ import { ShieldCheck } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import type { TrashCheckResult } from "../../services/settings-service";
 import { SettingsRow, SettingsSection, Toggle } from "./controls";
+import { QuarantineRestore } from "./QuarantineRestore";
 import type { SectionProps } from "./settings-draft";
 import { TrashHelpDialog } from "./TrashHelpDialog";
 
@@ -61,6 +62,7 @@ export function RemovalSection({ draft, update, trash }: SectionProps & { trash:
           />
         </label>
       </div>
+      <QuarantineRestore />
       <SettingsRow
         label="Move Deleted Files to Trash"
         description={

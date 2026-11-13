@@ -179,6 +179,11 @@ export function GroupReview(): ReactNode {
             {group.minPhashDistance !== undefined && (
               <span className="text-sm text-orange-400">{`Min distance: ${group.minPhashDistance}`}</span>
             )}
+            {group.method === "clip" && (
+              <span className="text-sm text-teal-400" data-testid="clip-review-note">
+                {`Closest: ${group.minClipDistance?.toFixed(3) ?? "—"} · nothing preselected: bursts and edits look alike`}
+              </span>
+            )}
           </div>
           <Instruction keeps={keeps} compareThisId={s.compareThisId} />
           <div className="flex items-center gap-2">

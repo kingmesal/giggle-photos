@@ -6,6 +6,7 @@ import type { ImageMetadata } from "../zod/image-metadata";
 import type { MediaFile } from "../zod/media-file";
 import type { VideoMetadata } from "../zod/video-metadata";
 import { computeAutoSelection } from "./auto-selection";
+import { clipAnchorId, getClipGroupSummaries, loadClipGroups } from "./clip-groups";
 
 const perfLog = getLogger("performance");
 
@@ -39,6 +40,8 @@ export interface LogicalGroupSummary {
   allDecided: boolean;
   /** For pHash groups: minimum hamming distance */
   minPhashDistance?: number;
+  /** For CLIP groups: closest cosine distance between two members */
+  minClipDistance?: number;
 }
 
 /**
@@ -55,6 +58,8 @@ export interface FileWithReviewContext {
   decision: FileDecision | null;
   /** For pHash groups: hamming distance to anchor image */
   phashDistance?: number;
+  /** For CLIP groups: cosine distance to this file's closest match in the group */
+  clipDistance?: number;
 }
 
 /**
@@ -78,6 +83,8 @@ export interface ReviewSummary {
   pendingContentHash: number;
   /** Number of pending pHash groups */
   pendingPhash: number;
+  /** Number of pending CLIP (visual similarity) groups; 0 when CLIP is off */
+  pendingClip: number;
   /** Total files decided as "keep" */
   decidedKeep: number;
   /** Total files decided as "delete" */
@@ -117,6 +124,8 @@ export async function getPendingGroups(params: {
 
   if (method === "sha256" || method === "content_hash") {
     allGroups = await getHashBasedGroups(db, dbProvider, method, deletedFileIds);
+  } else if (method === "clip") {
+    allGroups = await getClipGroupSummaries(dbProvider, deletedFileIds);
   } else {
     allGroups = await getPhashGroups(db, dbProvider, phashThreshold, deletedFileIds);
   }
@@ -470,6 +479,7 @@ export async function getLogicalGroupFiles(params: {
 
   let fileIds: number[];
   let phashDistanceMap: Map<string, number> | undefined;
+  let clipClosest: Map<number, number> | undefined;
 
   if (method === "sha256" || method === "content_hash") {
     const hashField = method === "sha256" ? "sha256Hash" : "contentHash";
@@ -480,6 +490,11 @@ export async function getLogicalGroupFiles(params: {
       .orderBy("id", "asc")
       .execute();
     fileIds = files.filter((f) => !deletedFileIds.has(f.id as number)).map((f) => f.id as number);
+  } else if (method === "clip") {
+    const anchorId = clipAnchorId(groupKey);
+    const group = (await loadClipGroups(dbProvider, deletedFileIds)).find((g) => g.anchorId === anchorId);
+    fileIds = group?.memberIds ?? [];
+    clipClosest = group?.closest;
   } else {
     // pHash: groupKey is "phash:{anchorFileId}"
     const anchorId = Number.parseInt(groupKey.replace("phash:", ""), 10);
@@ -572,6 +587,9 @@ export async function getLogicalGroupFiles(params: {
         ctx.phashDistance = 0;
       }
     }
+
+    const closest = clipClosest?.get(fileId);
+    if (closest !== undefined) ctx.clipDistance = closest;
 
     files.push(ctx);
   }
@@ -757,10 +775,11 @@ export async function getReviewSummary(): Promise<ReviewSummary> {
   const deletedFileIds = await fileDecisionProvider.getDeletedFileIds();
 
   // Run all counts in parallel
-  const [pendingSha256, pendingContentHash, phashCounts, counts, conflicts] = await Promise.all([
+  const [pendingSha256, pendingContentHash, phashCounts, clipGroups, counts, conflicts] = await Promise.all([
     getHashGroupPendingCount(db, "sha256", deletedFileIds),
     getHashGroupPendingCount(db, "content_hash", deletedFileIds),
     getPhashGroupCounts(db, dbProvider, 5, deletedFileIds),
+    getClipGroupSummaries(dbProvider, deletedFileIds),
     fileDecisionProvider.getCountByAction(),
     fileDecisionProvider.getConflictingFiles(),
   ]);
@@ -771,6 +790,7 @@ export async function getReviewSummary(): Promise<ReviewSummary> {
     pendingSha256,
     pendingContentHash,
     pendingPhash: phashCounts.pending,
+    pendingClip: clipGroups.filter((g) => !g.allDecided).length,
     decidedKeep: counts.keep,
     decidedDelete: counts.delete,
     phashIdenticalPairs: phashCounts.identical,

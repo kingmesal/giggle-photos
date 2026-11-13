@@ -65,7 +65,7 @@ function Thumbnail({ ctx }: { ctx: FileWithReviewContext }): ReactNode {
 
 function ImageCardInner(props: ImageCardProps): ReactNode {
   const { fileCtx, action, isKeep, disableCompare, timeDiff, isCompareThis, keepCount } = props;
-  const { file, phashDistance } = fileCtx;
+  const { file, phashDistance, clipDistance } = fileCtx;
   const key = action ?? "pending";
   const badge = BADGE[key] ?? BADGE.pending;
   const dimensions = dimensionsOf(fileCtx);
@@ -145,6 +145,12 @@ function ImageCardInner(props: ImageCardProps): ReactNode {
           {dimensions && <span>{dimensions}</span>}
           <span className="uppercase">{file.extension}</span>
           {phashDistance !== undefined && <span className="text-orange-400">{`d=${phashDistance}`}</span>}
+          {clipDistance !== undefined && (
+            <span
+              className="text-teal-400"
+              title="CLIP cosine distance to its closest match"
+            >{`v=${clipDistance.toFixed(3)}`}</span>
+          )}
           {timeDiff && <span className="text-blue-400">{timeDiff}</span>}
           {gps && <span className="text-green-400">{gps}</span>}
         </div>

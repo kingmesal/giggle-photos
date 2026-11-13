@@ -73,7 +73,9 @@ export function hasPendingWork(state: PipelineState | null): boolean {
 }
 
 export function pendingGroups(summary: ResultsSummary | null): number {
-  return summary ? summary.pendingSha256 + summary.pendingContentHash + summary.pendingPhash : 0;
+  return summary
+    ? summary.pendingSha256 + summary.pendingContentHash + summary.pendingPhash + (summary.pendingClip ?? 0)
+    : 0;
 }
 
 /** Index of the current step: from live progress, else derived from the persisted pipeline state. */
