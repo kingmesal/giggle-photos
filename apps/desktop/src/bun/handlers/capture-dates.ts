@@ -1,7 +1,9 @@
 import { type ApplyCaptureDatesResult, applyCaptureDates } from "@giggle-photos/core/dates/capture-date-writer";
 import { type CaptureDateProposal, findCaptureDateProposals } from "@giggle-photos/core/dates/capture-dates";
+import { type CaptureDatesReadiness, captureDatesReadiness } from "@giggle-photos/core/dates/readiness";
 import { DatabaseProvider } from "@giggle-photos/core/db/database-provider";
 import { getLogger } from "@giggle-photos/core/logging/logger";
+import { getReviewSummary } from "@giggle-photos/core/review/review-queries";
 
 const log = getLogger("rpc:capture-dates");
 const LIST_LIMIT = 500;
@@ -15,6 +17,8 @@ export interface CaptureDateReportResponse {
   undatable: number;
   undatableSample: string[];
   listLimit: number;
+  /** Final step: writing is allowed only after duplicate checks (RFD-006). */
+  readiness: CaptureDatesReadiness;
 }
 
 export interface CaptureDateJob {
@@ -35,8 +39,12 @@ const count = (items: string[]) =>
 
 /** RPC: what would be dated, and from which source (RFD-006). */
 export async function getCaptureDateReport(): Promise<CaptureDateReportResponse> {
-  const { proposals, undatable } = await findCaptureDateProposals(await DatabaseProvider.getInstance());
+  const [{ proposals, undatable }, summary] = await Promise.all([
+    findCaptureDateProposals(await DatabaseProvider.getInstance()),
+    getReviewSummary(),
+  ]);
   return {
+    readiness: captureDatesReadiness(summary),
     total: proposals.length,
     bySource: count(proposals.map((p) => p.source)),
     byPrecision: count(proposals.map((p) => p.precision)),
@@ -50,6 +58,10 @@ export async function getCaptureDateReport(): Promise<CaptureDateReportResponse>
 /** RPC: start writing every proposal into its file; poll getCaptureDateJob for progress. */
 export async function startCaptureDates(): Promise<CaptureDateJob> {
   if (job.running) return job;
+  const readiness = captureDatesReadiness(await getReviewSummary());
+  if (!readiness.ready) {
+    throw new Error(`Finish the duplicate checks first: ${readiness.blockers.join("; ")}`);
+  }
   job = { running: true, done: 0, total: 0, result: null, error: null };
   void (async () => {
     try {

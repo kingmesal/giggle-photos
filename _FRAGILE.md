@@ -43,6 +43,8 @@ Files: `applyDecisions.ts` (orchestrates), `deletion-plan.ts` (pure safety rules
 - Source order is Google JSON > file name > folder; `date-parse.ts` rejects impossible dates and
   years outside 1990…next year. Add a test for every new name or folder pattern.
 - After a write, update SHA-256, size and `dateTaken` from the file on disk (see `recordWrite`).
+- Writing is the final step: `startCaptureDates` must keep refusing until `captureDatesReadiness`
+  is ready (duplicates reviewed, conflicts resolved, deletions applied).
 - Run `dates/capture-dates.test.ts` (real files, real ExifTool) after changes.
 
 ---

@@ -16,6 +16,7 @@
     "./db/client": "./src/db/client.ts",
     "./dates/capture-date-writer": "./src/dates/capture-date-writer.ts",
     "./dates/capture-dates": "./src/dates/capture-dates.ts",
+    "./dates/readiness": "./src/dates/readiness.ts",
     "./db/database-provider": "./src/db/database-provider.ts",
     "./db/folder-owner-device-provider": "./src/db/folder-owner-device-provider.ts",
     "./db/schema": "./src/db/schema.ts",

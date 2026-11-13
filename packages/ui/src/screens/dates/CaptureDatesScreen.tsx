@@ -3,7 +3,7 @@
  * (Google JSON, then file name, then dated folder), and a confirmed, background write of those
  * dates into the files.
  */
-import { CalendarClock, CircleCheck, LoaderCircle } from "lucide-react";
+import { CalendarClock, CircleCheck, Copy, LoaderCircle, Lock } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useAction } from "../../external/use-action";
 import { useInterval } from "../../external/use-interval";
@@ -14,6 +14,7 @@ import {
   loadCaptureDateReport,
   startCaptureDates,
 } from "../../services/capture-dates-service";
+import { navigateTo } from "../../state/navigation";
 import { notifyReviewDataChanged } from "../../state/review-events";
 import { ApplyDatesDialog } from "./ApplyDatesDialog";
 import { ProposalTable, precisionLabel, sourceLabel } from "./ProposalTable";
@@ -42,6 +43,32 @@ function Counts({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Shown until duplicate checks are finished: writing dates changes the files' SHA-256. */
+function NotYet({ blockers }: { blockers: string[] }): ReactNode {
+  return (
+    <div className="mb-6 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm" data-testid="dates-locked">
+      <p className="font-medium flex items-center gap-2">
+        <Lock size="1em" /> Final step: finish the duplicate checks first
+      </p>
+      <p className="mt-1 text-fg-3">
+        Writing a date changes the file, so exact-duplicate matching would no longer recognise its copies.
+      </p>
+      <ul className="mt-2 list-disc pl-5 text-fg-2">
+        {blockers.map((b) => (
+          <li key={b}>{b}</li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        className="mt-3 px-3 py-1.5 rounded text-sm font-medium bg-surface-inset hover:bg-surface-active text-fg-2 flex items-center gap-2"
+        onClick={() => navigateTo("duplicates")}
+      >
+        <Copy size="1em" /> Go to Duplicates
+      </button>
     </div>
   );
 }
@@ -95,6 +122,8 @@ export function CaptureDatesScreen(): ReactNode {
   );
   const r = report.value;
   const busy = job?.running === true || start.pending;
+  const locked = r !== undefined && !r.readiness.ready;
+  const disabled = !r || r.total === 0 || busy || locked;
   const onConfirm = async () => {
     setConfirming(false);
     const started = await start.run();
@@ -106,17 +135,19 @@ export function CaptureDatesScreen(): ReactNode {
         <div>
           <h2 className="text-xl font-semibold text-fg">Capture Dates</h2>
           <p className="text-sm text-fg-muted mt-0.5">
-            Photos and videos with no capture date, dated from their Google JSON, file name or folder
+            Final step after duplicates: photos and videos with no capture date, dated from their Google JSON, file name
+            or folder
           </p>
         </div>
         <button
           type="button"
           className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
-            !r || r.total === 0 || busy
+            disabled
               ? "bg-amber-600/30 text-amber-200 cursor-not-allowed"
               : "bg-amber-600 hover:bg-amber-500 text-white"
           }`}
-          disabled={!r || r.total === 0 || busy}
+          disabled={disabled}
+          title={locked ? "Finish the duplicate checks first" : undefined}
           onClick={() => setConfirming(true)}
         >
           <CalendarClock size="1em" />
@@ -124,6 +155,7 @@ export function CaptureDatesScreen(): ReactNode {
         </button>
       </header>
       <div className="flex-1 overflow-auto p-6">
+        {locked && r && <NotYet blockers={r.readiness.blockers} />}
         {job && <JobStatus job={job} />}
         {start.failure && <p className="mb-4 text-sm text-accent-red">{start.failure.message}</p>}
         {!r ? (

@@ -25,6 +25,8 @@ export interface CaptureDateReport {
   undatable: number;
   undatableSample: string[];
   listLimit: number;
+  /** Final step: writing is allowed only after duplicate checks. */
+  readiness: { ready: boolean; blockers: string[] };
 }
 
 export interface CaptureDateJob {
@@ -49,6 +51,7 @@ const EMPTY: CaptureDateReport = {
   undatable: 0,
   undatableSample: [],
   listLimit: 500,
+  readiness: { ready: true, blockers: [] },
 };
 let rpcClient: CaptureDatesRPC | null = null;
 

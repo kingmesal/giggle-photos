@@ -40,6 +40,7 @@ const REPORT: CaptureDateReport = {
   undatable: 3,
   undatableSample: [],
   listLimit: 500,
+  readiness: { ready: true, blockers: [] },
 };
 
 function rpc() {
@@ -87,6 +88,20 @@ describe("CaptureDatesScreen", () => {
     await waitFor(() => expect(screen.getByText("Wrote 2 dates.")).toBeTruthy());
     await waitFor(() => expect(screen.getByText(/already has a date/)).toBeTruthy());
     expect(api.getCaptureDateReport).toHaveBeenCalledTimes(2);
+  });
+
+  test("locked until duplicate checks are finished: reasons shown, writing disabled", async () => {
+    const { api } = rpc();
+    api.getCaptureDateReport.mockImplementation(async () => ({
+      ...REPORT,
+      readiness: { ready: false, blockers: ["3 duplicate groups still to review"] },
+    }));
+    render(<CaptureDatesScreen />);
+    await waitFor(() => expect(screen.getByTestId("dates-locked")).toBeTruthy());
+    expect(screen.getByText("3 duplicate groups still to review")).toBeTruthy();
+    expect((screen.getByRole("button", { name: /Write Dates \(2\)/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("capture-date-table")).toBeTruthy(); // the preview stays visible
+    expect(screen.getByRole("button", { name: /Go to Duplicates/ })).toBeTruthy();
   });
 
   test("without RPC: nothing to date, the button is disabled", async () => {

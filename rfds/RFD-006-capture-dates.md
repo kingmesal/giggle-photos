@@ -31,9 +31,12 @@ name has it (`IMG_20190512_143000.jpg`), or the photo sits in a dated folder (`2
   database follows: the new SHA-256 and size, and `dateTaken`. Proposals are recomputed at apply
   time, so a file dated since the review is never overwritten. It runs as a background job with
   progress, and each file's failure is reported without stopping the rest.
-- **Order with deduplication:** writing changes the bytes, so SHA-256 duplicate groups no longer
-  see the changed copy and its untouched twin as exact duplicates. Content hash and pHash still
-  match. The confirmation says to review duplicates first.
+- **The final step, after duplicate checks** (maintainer's decision, 2026-11-13): writing changes
+  the bytes, so SHA-256 would no longer pair a changed copy with its untouched twin. Writing is
+  locked until no sha256 / content-hash / pHash groups are pending, no conflicts remain, and no
+  delete decisions are waiting to be applied (`dates/readiness.ts`). The desktop handler refuses
+  to start otherwise, and the screen shows a preview plus the reasons. CLIP groups are review-only
+  and do not block.
 
 ## Packaging
 `exiftool-vendored` is external to the bundle and shipped by the postBuild hook (RFD-001), which
