@@ -2,6 +2,7 @@
  * First-run CLIP model setup banner (RFD-002): download progress, or the error with Retry and
  * "Import model file…". Nothing is shown until the first status arrives (none without RPC).
  */
+import { CircleCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { useAction } from "../../external/use-action";
 import { importClipModelFile, retryClipModelSetup, useClipSetup } from "../../services/clip-service";
@@ -15,7 +16,12 @@ export function ClipModelBanner(): ReactNode {
   const importFile = useAction(importClipModelFile);
   if (!status) return null;
   if (status.state === "ready") {
-    return <div className="mb-3 text-xs text-fg-faint">Visual similarity (CLIP) model ready.</div>;
+    return (
+      <div className="mb-3 text-sm text-fg-muted flex items-center gap-1.5">
+        <CircleCheck size="1em" className="text-accent-green" aria-hidden="true" />
+        Visual similarity (CLIP) model ready.
+      </div>
+    );
   }
   if (status.state === "downloading") {
     const pct = status.totalBytes > 0 ? Math.round((status.receivedBytes / status.totalBytes) * 100) : 0;

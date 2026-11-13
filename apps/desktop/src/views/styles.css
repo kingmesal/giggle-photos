@@ -42,7 +42,7 @@ body {
   --fg-2: #27272a; /* zinc-800 — labels */
   --fg-3: #3f3f46; /* zinc-700 — body text */
   --fg-muted: #52525b; /* zinc-600 — DARKENED from zinc-500 for readability */
-  --fg-faint: #a1a1aa; /* zinc-400 — very faint */
+  --fg-faint: #66666e; /* secondary hints, ≥4.5:1 on page and cards (zinc-400 was ~2.2:1); muted is #52525b */
   --surface: #ebebef; /* darker zinc — page bg */
   --surface-card: #f4f4f5; /* zinc-100 — card/panel bg */
   --surface-inset: #d4d4d8; /* zinc-300 — controls/badges bg */
@@ -60,7 +60,7 @@ body {
   --fg-2: #e4e4e7; /* zinc-200 */
   --fg-3: #d4d4d8; /* zinc-300 */
   --fg-muted: #a1a1aa; /* zinc-400 */
-  --fg-faint: #71717a; /* zinc-500 */
+  --fg-faint: #8b8b94; /* between zinc-400 and -500 — zinc-500 was ~3:1 on cards */
   --surface: #18181b; /* zinc-900 */
   --surface-card: #27272a; /* zinc-800 */
   --surface-inset: #3f3f46; /* zinc-700 */
