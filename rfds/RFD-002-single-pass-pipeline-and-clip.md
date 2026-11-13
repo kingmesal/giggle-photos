@@ -1,7 +1,8 @@
 # RFD-002: Single-Pass Analysis Pipeline + CLIP Similarity Method
 
 ## Status
-Draft — 2026-11-12
+Draft — 2026-11-12. Step 1 and CLIP embeddings + matching implemented 2026-11-12; CLIP review
+integration (in RFD-004) and video frames pending.
 
 ## Problem
 
@@ -305,6 +306,28 @@ What the numbers say:
 - **Peak RSS is not bounded by the 1 GB decode budget alone.** The budget limits in-flight decode
   memory; the process adds ~0.8–1 GB of baseline and allocator retention, and peaks when several
   50 MP images coincide. Lower `DECODE_MEMORY_BUDGET_MB` if the desktop needs a tighter ceiling.
+
+**CLIP steps 2–3 (embeddings, matching), 2026-11-12**, same sample (CPU, load 22–38):
+
+| | Without CLIP | With CLIP |
+|---|---|---|
+| Analysis stage wall | 84.5 s | 139.8 s |
+| Worker CPU | 164 s | 498 s (+≈ 174 ms CPU per image) |
+| Worker peak RSS | 1.97 GB | 2.44 GB |
+| Per image: preprocess / inference | — | 34 / 37 ms |
+| All-pairs matching (MatMul + TopK, 1,920 images) | — | ≈ 1 s |
+
+- **Thread finding:** ONNX Runtime's default intra-op threads (all cores) spin and oversubscribe
+  when 4 images are embedded concurrently: 1,119 ms CPU per image vs 112 ms with 4 threads
+  (35 img/s). Default `clipThreads` is 4, inter-op 1.
+- **Synthetic data cannot calibrate CLIP**: on the generated sample even unrelated images sit at
+  ≈ 0.06 (abstract shapes look alike to CLIP), so 96,866 pairs fell under 0.12. Thresholds are
+  settings (`clipStrongMaxDistance`, `clipReviewMaxDistance`, `clipSimilarShotsEnabled`,
+  `clipStoreMaxDistance`, `clipTopK`) to calibrate on the real library.
+- Model download re-verified: both pinned SHA-256 values match.
+- **Deferred:** CLIP groups in the review screens (`FileDecisionMethod "clip"`, `clip:{anchor}`
+  groups) move to RFD-004's review UI; video frames (§E) remain step 4. Distributed builds still
+  need native modules (sharp, onnxruntime-node) shipped next to the bundle (see RFD-001 findings).
 
 ## Alternatives Considered
 

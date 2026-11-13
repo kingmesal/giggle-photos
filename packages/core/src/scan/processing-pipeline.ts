@@ -4,6 +4,7 @@ import { StageTimer } from "../util/timing";
 
 const log = getLogger("core:pipeline");
 
+import { type ClipStageResult, runClipStage } from "../clip/clip-stage";
 import type { TakeoutSummary } from "../db/takeout-provider";
 import { indexTakeout } from "../takeout/takeout-index";
 import { detectDuplicates } from "./duplicate-detector";
@@ -31,6 +32,8 @@ export interface StageStatsEntry {
   errorBreakdown?: Record<string, number>;
   /** Timer name -> avg ms */
   timingMs?: Record<string, number>;
+  /** CLIP embeddings and matching (detecting stage only, RFD-002); error = why it failed */
+  clip?: ClipStageResult | { error: string };
   /** Google Takeout index (scanning stage only, RFD-003) */
   takeout?: { roots: number; warnings: string[]; summary: TakeoutSummary | null };
   /** Per-algorithm breakdown (hashing stage only) */
@@ -549,10 +552,28 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
       },
     });
 
+    // CLIP (RFD-002): review-only visual similarity. Non-fatal: pHash results stand on their own.
+    let clipStats: StageStatsEntry["clip"];
+    try {
+      clipStats = await runClipStage({
+        concurrency: options?.hashConcurrency ?? 4,
+        onProgress: (operation, done, total) =>
+          updateProgress({
+            stageProgress: total > 0 ? Math.round((done / total) * 100) : 100,
+            currentOperation: operation,
+          }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(`CLIP stage failed: ${message}`);
+      clipStats = { error: message };
+    }
+
     stageStats.detecting = {
       processed: detectionResult.phashPairsComputed,
-      errors: 0,
+      errors: clipStats && "error" in clipStats ? 1 : 0,
       skipped: 0,
+      clip: clipStats,
     };
 
     // After detection completes, mark all hashed files as processed

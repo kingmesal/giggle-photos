@@ -7,6 +7,8 @@
  * Every failure is counted by category in `errorBreakdown`; nothing is silently skipped.
  */
 import PQueue from "p-queue";
+import { CLIP_MODEL } from "../clip/model-manifest";
+import { workerClipOptions } from "../clip/model-service";
 import { DatabaseProvider } from "../db/database-provider";
 import { getLogger } from "../logging/logger";
 import type { StageTimer } from "../util/timing";
@@ -15,7 +17,7 @@ import { categorizeAnalysisError } from "./analysis-protocol";
 import { HashError } from "./hash-error";
 import { computeSha256 } from "./hash-sha256";
 import { ensureSharpProcess, requestImageAnalysis, shutdownSharpProcess } from "./sharp-process";
-import { countError, createHashStats, type HashStats, storeImageAnalysis } from "./store-analysis";
+import { countError, createHashStats, type EmbeddingSink, type HashStats, storeImageAnalysis } from "./store-analysis";
 
 const log = getLogger("core:hash-unified");
 
@@ -33,6 +35,7 @@ export interface HashBatchResult {
   skipped: number;
   algorithmStats: HashStats["algorithmStats"];
   errorBreakdown?: Record<string, number>;
+  clip?: HashStats["clip"];
 }
 
 type MediaFileProvider = ReturnType<Awaited<ReturnType<typeof DatabaseProvider.getInstance>>["getMediaFileProvider"]>;
@@ -44,7 +47,13 @@ function workerFailure(error: unknown): HashError {
   return new HashError("worker_crash", message);
 }
 
-async function analyzeImage(file: MediaFile, mediaFiles: MediaFileProvider, stats: HashStats, timer?: StageTimer) {
+async function analyzeImage(
+  file: MediaFile,
+  mediaFiles: MediaFileProvider,
+  stats: HashStats,
+  timer?: StageTimer,
+  embeddings?: EmbeddingSink,
+) {
   let response: Awaited<ReturnType<typeof requestImageAnalysis>>;
   try {
     response = await requestImageAnalysis(file.path);
@@ -63,7 +72,7 @@ async function analyzeImage(file: MediaFile, mediaFiles: MediaFileProvider, stat
   for (const [name, ms] of Object.entries(response.timings)) {
     if (ms !== undefined) timer?.record(name, ms);
   }
-  const failure = await storeImageAnalysis(file, response, mediaFiles, stats);
+  const failure = await storeImageAnalysis(file, response, mediaFiles, stats, embeddings);
   if (failure) log.warn(`Image analysis failed for ${file.path} (${failure.breakdownKey}): ${failure.message}`);
 }
 
@@ -111,9 +120,15 @@ export async function processHashBatch(options?: HashBatchOptions): Promise<Hash
     return { ...stats, errorBreakdown: undefined };
   }
 
+  let embeddings: EmbeddingSink | undefined;
   if (files.some((f) => f.fileType === "image")) {
-    const capabilities = await ensureSharpProcess();
-    log.info(`Image-analysis worker: sharp=${capabilities.sharp}, phash=${capabilities.phash}`);
+    const capabilities = await ensureSharpProcess(workerClipOptions());
+    log.info(`Image-analysis worker: ${JSON.stringify(capabilities)}`);
+    // Embed in the same pass when the worker loaded the model; otherwise the CLIP stage backfills.
+    if (capabilities.clip && "provider" in capabilities.clip) {
+      const clip = db.getClipProvider();
+      embeddings = { modelId: CLIP_MODEL.id, upsertEmbeddings: (rows) => clip.upsertEmbeddings(rows) };
+    }
   }
   log.info(`Analysing ${total} files with concurrency ${concurrency}`);
 
@@ -121,7 +136,7 @@ export async function processHashBatch(options?: HashBatchOptions): Promise<Hash
   const queue = new PQueue({ concurrency });
   for (const file of files) {
     queue.add(async () => {
-      if (file.fileType === "image") await analyzeImage(file, mediaFiles, stats, timer);
+      if (file.fileType === "image") await analyzeImage(file, mediaFiles, stats, timer, embeddings);
       else await analyzeVideo(file, mediaFiles, stats, timer);
       completed++;
       onProgress?.(completed, total, file.path);
@@ -143,5 +158,6 @@ export async function processHashBatch(options?: HashBatchOptions): Promise<Hash
     skipped: stats.skipped,
     algorithmStats: stats.algorithmStats,
     errorBreakdown: Object.keys(stats.errorBreakdown).length > 0 ? stats.errorBreakdown : undefined,
+    clip: embeddings ? stats.clip : undefined,
   };
 }

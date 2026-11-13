@@ -2,6 +2,7 @@
  * Benchmark the full processing pipeline on the fixed sample (RFD-002 "before"/"after" numbers).
  *
  *   bun packages/core/src/bench/run-bench.ts [sampleDir] --label=before [--concurrency=4] [--out=dir]
+ *     [--clip-model=/path/to/model.onnx]   (imports the CLIP model, verified, to include CLIP)
  *
  * Runs against a fresh throwaway database, so it never touches the real app data. Records wall
  * time per stage, the pipeline's own per-bucket *Ms averages (StageTimer), CPU time and peak RSS
@@ -33,6 +34,12 @@ const { DatabaseProvider } = await import("../db/database-provider");
 const { runPipeline } = await import("../scan/processing-pipeline");
 const { shutdownSharpProcess } = await import("../scan/sharp-process");
 type Progress = Parameters<NonNullable<Parameters<typeof runPipeline>[0]>["onProgress"] & object>[0];
+
+const clipModel = flag("clip-model");
+if (clipModel) {
+  const { importClipModel } = await import("../clip/model-service");
+  await importClipModel(clipModel); // verifies the pinned SHA-256
+}
 
 const db = await DatabaseProvider.getInstance();
 await db.getScanFolderProvider().insertScanFolder({ path: sampleDir });
@@ -89,7 +96,7 @@ const report = {
     loadavgAtEnd: loadavg(),
     bun: Bun.version,
   },
-  options: { concurrency },
+  options: { concurrency, clip: Boolean(clipModel) },
   sample: { dir: sampleDir, manifest },
   result,
   wallMs: Math.round(wallMs),

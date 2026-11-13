@@ -3,7 +3,8 @@
  *
  * The worker runs as its own process (`bun run sharp-worker.js`) to keep libvips' GLib away
  * from Chromium, so it is not part of the main bundle. Bundling inlines its imports (exifr,
- * the in-house pHash) and leaves native `sharp` external, resolved from node_modules at runtime.
+ * the in-house pHash, CLIP preprocessing) and leaves the native modules (`sharp`, `onnxruntime-node`)
+ * external, resolved from node_modules at runtime.
  */
 import { join } from "node:path";
 
@@ -16,7 +17,7 @@ const result = await Bun.build({
   outdir,
   target: "bun",
   format: "esm",
-  external: ["sharp"],
+  external: ["sharp", "onnxruntime-node"],
   naming: "sharp-worker.js",
 });
 

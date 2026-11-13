@@ -55,6 +55,7 @@ Create an RFD for:
 | [RFD-002](RFD-002-single-pass-pipeline-and-clip.md) | Single-pass analysis pipeline + CLIP similarity | Draft | — |
 | [RFD-003](RFD-003-google-takeout-sidecars-and-albums.md) | Google Takeout: JSON sidecars, albums, motion photos | Draft | — |
 | [RFD-004](RFD-004-react-ui-rewrite.md) | React UI rewrite on Electrobun 2.x, no `useEffect` | Draft | RFD-001 |
+| [RFD-005](RFD-005-folder-owner-devices.md) | Folder owner devices: keep the copy in the phone owner's folder | Draft | RFD-003, RFD-004 |
 
 Suggested order: RFD-001 → RFD-002 (pipeline refactor first) and RFD-003 in parallel →
 RFD-004. The production dedup run waits for all four, on a fresh Google Takeout.

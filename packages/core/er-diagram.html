@@ -223,6 +223,24 @@ erDiagram
         INTEGER createdAt "unix timestamp"
     }
 
+    clipEmbeddings {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER mediaFileId FK "FK → mediaFiles.id CASCADE"
+        INTEGER frameIndex "0 for images (video frames later)"
+        TEXT modelId "model id incl. pinned revision"
+        BLOB embedding "512 × float32, L2-normalised"
+        INTEGER createdAt "unix timestamp"
+    }
+
+    clipMatches {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER mediaFileId1 FK "FK → mediaFiles.id CASCADE"
+        INTEGER mediaFileId2 FK "FK → mediaFiles.id CASCADE"
+        TEXT modelId "model id"
+        REAL distance "cosine distance 0-2"
+        INTEGER createdAt "unix timestamp"
+    }
+
     scanFolders ||--o{ mediaFiles : "has many"
     mediaFiles ||--o| imageMetadata : "has one (images)"
     mediaFiles ||--o| videoMetadata : "has one (videos)"
@@ -237,6 +255,9 @@ erDiagram
     mediaFiles ||--o{ sidecars : "described by"
     mediaFiles ||--o{ mediaPairs : "primaryFileId"
     mediaFiles ||--o{ mediaPairs : "secondaryFileId"
+    mediaFiles ||--o{ clipEmbeddings : "has many (per model/frame)"
+    mediaFiles ||--o{ clipMatches : "mediaFileId1"
+    mediaFiles ||--o{ clipMatches : "mediaFileId2"
     </pre>
   </div>
 
@@ -250,6 +271,8 @@ erDiagram
     <span>fileDecisions: <code>UNIQUE(mediaFileId, reviewGroupKey)</code></span>
     <span>phashGroupMembers: <code>UNIQUE(mediaFileId)</code>, pre-computed connected components</span>
     <span>mediaPairs: <code>UNIQUE(primaryFileId, secondaryFileId)</code>; motion pairs are decided together</span>
+    <span>clipEmbeddings: <code>UNIQUE(mediaFileId, frameIndex, modelId)</code></span>
+    <span>clipMatches: <code>CHECK mediaFileId1 &lt; mediaFileId2</code>, <code>UNIQUE(mediaFileId1, mediaFileId2, modelId)</code>; review-only</span>
   </div>
 
   <script type="module">

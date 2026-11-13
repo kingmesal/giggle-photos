@@ -5,7 +5,7 @@ import type { AnalysisResponse } from "./analysis-protocol";
 const mockExtractImageMetadata = mock(async (_id: number, _path: string, _prefetched?: unknown) => {});
 mock.module("./metadata-image", () => ({ extractImageMetadata: mockExtractImageMetadata }));
 
-import { createHashStats, storeImageAnalysis } from "./store-analysis";
+import { createHashStats, storeEmbedding, storeImageAnalysis } from "./store-analysis";
 
 const SHA = "a".repeat(64);
 const file = { id: 7, path: "/photos/IMG_1.jpg" };
@@ -86,5 +86,34 @@ describe("storeImageAnalysis", () => {
     await storeImageAnalysis(file, partial, mediaFiles, stats);
     expect(stats.errorBreakdown).toEqual({ unknown: 1 });
     expect(updates[0]?.status).toBe("error");
+  });
+});
+
+describe("storeEmbedding", () => {
+  const sinkRows: { mediaFileId: number; modelId: string; embedding: Float32Array }[] = [];
+  const sink = {
+    modelId: "m@1",
+    upsertEmbeddings: async (rows: typeof sinkRows) => {
+      sinkRows.push(...rows);
+    },
+  };
+
+  test("stores the worker's embedding for the file and counts it", async () => {
+    const stats = createHashStats();
+    await storeEmbedding(7, { clipEmbedding: [0.6, 0.8] }, sink, stats);
+    expect(sinkRows.at(-1)).toEqual({ mediaFileId: 7, modelId: "m@1", embedding: Float32Array.from([0.6, 0.8]) });
+    expect(stats.clip).toEqual({ embedded: 1, errors: 0 });
+  });
+
+  test("counts an embedding failure without throwing", async () => {
+    const stats = createHashStats();
+    await storeEmbedding(7, { clipError: "bad tensor" }, sink, stats);
+    expect(stats.clip).toEqual({ embedded: 0, errors: 1 });
+  });
+
+  test("does nothing when no model is loaded (no sink)", async () => {
+    const stats = createHashStats();
+    await storeEmbedding(7, { clipEmbedding: [1] }, undefined, stats);
+    expect(stats.clip).toEqual({ embedded: 0, errors: 0 });
   });
 });

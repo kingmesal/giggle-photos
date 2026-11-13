@@ -51,12 +51,30 @@ export function estimateDecodeBytes(
   return fileBytes + 2 * width * height * Math.max(channels, 3) * bytesPerSample;
 }
 
+/** Computes a CLIP embedding from file bytes (provided by the worker when the model is loaded). */
+export type Embedder = (
+  bytes: Uint8Array,
+) => Promise<{ vector: Float32Array; preprocessMs: number; inferenceMs: number }>;
+
+/** Run the embedder; an embedding failure is recorded but never fails the rest of the analysis. */
+async function addEmbedding(result: AnalysisResult, bytes: Uint8Array, embedder: Embedder): Promise<void> {
+  try {
+    const { vector, preprocessMs, inferenceMs } = await embedder(bytes);
+    result.clipEmbedding = Array.from(vector);
+    result.timings.clipPreprocess = preprocessMs;
+    result.timings.clipInference = inferenceMs;
+  } catch (error) {
+    result.clipError = error instanceof Error ? error.message : String(error);
+  }
+}
+
 /** Analyse an image that has already been read into memory. Never throws: failures are returned. */
 export async function analyzeImageBytes(
   sharp: Sharp,
   bytes: Uint8Array,
   filePath: string,
   budget: ByteBudget | null,
+  embedder?: Embedder,
 ): Promise<AnalysisResult> {
   const timings: Partial<Record<AnalysisTimer, number>> = {};
   const time = async <T>(name: AnalysisTimer, fn: () => Promise<T> | T): Promise<T> => {
@@ -123,6 +141,7 @@ export async function analyzeImageBytes(
       hasAlpha: header.hasAlpha ?? false,
     };
     result.decoded = decoded;
+    if (embedder) await addEmbedding(result, bytes, embedder);
   } catch (error) {
     result.failure = categorizeAnalysisError(error instanceof Error ? error.message : String(error), extension);
   } finally {
@@ -136,6 +155,7 @@ export async function analyzeImageFile(
   sharp: Sharp,
   filePath: string,
   budget: ByteBudget | null,
+  embedder?: Embedder,
 ): Promise<AnalysisResult> {
   const t0 = performance.now();
   let bytes: Uint8Array;
@@ -146,7 +166,21 @@ export async function analyzeImageFile(
     return { timings: { read: performance.now() - t0 }, failure: categorizeAnalysisError(message, "") };
   }
   const readMs = performance.now() - t0;
-  const result = await analyzeImageBytes(sharp, bytes, filePath, budget);
+  const result = await analyzeImageBytes(sharp, bytes, filePath, budget, embedder);
   result.timings.read = readMs;
+  return result;
+}
+
+/** CLIP embedding only (backfill for images analysed before the model was ready). */
+export async function embedImageFile(filePath: string, embedder: Embedder): Promise<AnalysisResult> {
+  const t0 = performance.now();
+  const result: AnalysisResult = { timings: {} };
+  try {
+    const bytes = await Bun.file(filePath).bytes();
+    result.timings.read = performance.now() - t0;
+    await addEmbedding(result, bytes, embedder);
+  } catch (error) {
+    result.clipError = error instanceof Error ? error.message : String(error);
+  }
   return result;
 }

@@ -1,4 +1,5 @@
 import type { ApplyDecisionResult } from "@giggle-photos/core/actions/applyDecisions";
+import type { getClipModelStatus } from "@giggle-photos/core/clip/model-service";
 import type { SystemHealth } from "@giggle-photos/core/config/system-health";
 import type { AppSettings } from "@giggle-photos/core/config/user-config";
 import type {
@@ -8,11 +9,13 @@ import type {
   ReviewSummary,
 } from "@giggle-photos/core/review/review-queries";
 import type { PipelineProgress, PipelineState } from "@giggle-photos/core/scan/processing-pipeline";
-import type { FileDecisionMethod } from "@giggle-photos/core/zod/file-decision";
 import type { TakeoutReport } from "@giggle-photos/core/takeout/takeout-report";
+import type { FileDecisionMethod } from "@giggle-photos/core/zod/file-decision";
 import type { ScanFolder as ScanFolderType, UpdateScanFolder } from "@giggle-photos/core/zod/scan-folder";
 import type { RPCSchema } from "electrobun/main";
 import type { AppInfo } from "./app-info";
+
+type ClipModelStatus = ReturnType<typeof getClipModelStatus>;
 
 export type GigglePhotosRPC = {
   bun: RPCSchema<{
@@ -68,6 +71,18 @@ export type GigglePhotosRPC = {
       getTakeoutReport: {
         params: Record<string, never>;
         response: TakeoutReport;
+      };
+      getClipModelStatus: {
+        params: Record<string, never>;
+        response: ClipModelStatus;
+      };
+      retryClipModelSetup: {
+        params: Record<string, never>;
+        response: ClipModelStatus;
+      };
+      importClipModelFile: {
+        params: Record<string, never>;
+        response: { status: ClipModelStatus; error: string | null };
       };
       listFolders: {
         params: Record<string, never>;

@@ -43,11 +43,22 @@ export interface AnalysisFailure {
   format?: string;
 }
 
-export type AnalysisTimer = "read" | "sha256" | "exif" | "budgetWait" | "decode" | "contentHash" | "perceptualHash";
+export type AnalysisTimer =
+  | "read"
+  | "sha256"
+  | "exif"
+  | "budgetWait"
+  | "decode"
+  | "contentHash"
+  | "perceptualHash"
+  | "clipPreprocess"
+  | "clipInference";
 
 export interface AnalysisRequest {
   id: number;
   filePath: string;
+  /** "analyze" (default): full single pass. "embed": CLIP embedding only (backfill). */
+  mode?: "analyze" | "embed";
 }
 
 export interface AnalysisResult {
@@ -60,6 +71,10 @@ export interface AnalysisResult {
   timings: Partial<Record<AnalysisTimer, number>>;
   /** Set when reading or decoding failed; whatever was computed before the failure is still set. */
   failure?: AnalysisFailure;
+  /** L2-normalised CLIP embedding, when the worker has the model loaded. */
+  clipEmbedding?: number[];
+  /** Why embedding failed for this file (the rest of the analysis still counts). */
+  clipError?: string;
 }
 
 export interface AnalysisResponse extends AnalysisResult {
@@ -71,6 +86,8 @@ export interface WorkerReady {
   sharp: boolean;
   phash: boolean;
   decodeBudgetBytes: number;
+  /** CLIP session state: null when no model was offered to the worker. */
+  clip: { provider: string; fallbackReason?: string } | { error: string } | null;
 }
 
 /** Keep only the EXIF tags we use, as IPC-safe primitives (Dates become ISO strings). */

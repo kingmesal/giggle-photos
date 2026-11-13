@@ -19,6 +19,16 @@ export interface HashStats {
   skipped: number;
   algorithmStats: { sha256: AlgorithmStats; contentHash: AlgorithmStats; perceptualHash: AlgorithmStats };
   errorBreakdown: Record<string, number>;
+  /** CLIP embeddings stored / failed in this batch (0/0 when the model was not loaded). */
+  clip: { embedded: number; errors: number };
+}
+
+/** Where embeddings go (ClipProvider + the model id they belong to). */
+export interface EmbeddingSink {
+  modelId: string;
+  upsertEmbeddings(
+    rows: { mediaFileId: number; modelId: string; embedding: Float32Array<ArrayBuffer> }[],
+  ): Promise<void>;
 }
 
 export function createHashStats(): HashStats {
@@ -29,7 +39,26 @@ export function createHashStats(): HashStats {
     skipped: 0,
     algorithmStats: { sha256: zero(), contentHash: zero(), perceptualHash: zero() },
     errorBreakdown: {},
+    clip: { embedded: 0, errors: 0 },
   };
+}
+
+/** Store a CLIP embedding from a worker response, counting failures. Never throws for a bad vector. */
+export async function storeEmbedding(
+  mediaFileId: number,
+  response: Pick<AnalysisResponse, "clipEmbedding" | "clipError">,
+  sink: EmbeddingSink | undefined,
+  stats: HashStats,
+): Promise<void> {
+  if (!sink) return;
+  if (response.clipEmbedding) {
+    await sink.upsertEmbeddings([
+      { mediaFileId, modelId: sink.modelId, embedding: Float32Array.from(response.clipEmbedding) },
+    ]);
+    stats.clip.embedded++;
+  } else if (response.clipError) {
+    stats.clip.errors++;
+  }
 }
 
 /** Count a failed file under its breakdown key (e.g. "unsupported_format:heic"). */
@@ -52,6 +81,7 @@ export async function storeImageAnalysis(
   response: AnalysisResponse,
   mediaFiles: MediaFileWriter,
   stats: HashStats,
+  embeddings?: EmbeddingSink,
 ): Promise<HashError | null> {
   const { sha256, contentHash, perceptualHash, failure } = response;
   if (sha256) stats.algorithmStats.sha256.computed++;
@@ -79,6 +109,7 @@ export async function storeImageAnalysis(
 
   stats.algorithmStats.contentHash.computed++;
   stats.algorithmStats.perceptualHash.computed++;
+  await storeEmbedding(file.id, response, embeddings, stats);
   await mediaFiles.updateMediaFile({
     id: file.id,
     sha256Hash: sha256,

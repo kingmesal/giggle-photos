@@ -1,4 +1,5 @@
 import { DatabaseClient } from "./client";
+import { ClipProvider } from "./clip-provider";
 import { FileDecisionProvider } from "./file-decision-provider";
 import { ImageMetadataProvider } from "./image-metadata-provider";
 import { MediaFileProvider } from "./media-file-provider";
@@ -28,6 +29,7 @@ export class DatabaseProvider {
   private fileDecisionProvider: FileDecisionProvider | null = null;
   private settingsProvider: SettingsProvider | null = null;
   private takeoutProvider: TakeoutProvider | null = null;
+  private clipProvider: ClipProvider | null = null;
 
   private constructor(private readonly dbClient: DatabaseClient) {}
 
@@ -153,6 +155,16 @@ export class DatabaseProvider {
   }
 
   /**
+   * Get or create the singleton ClipProvider (clipEmbeddings, clipMatches).
+   */
+  getClipProvider(): ClipProvider {
+    if (!this.clipProvider) {
+      this.clipProvider = new ClipProvider(this.getClient().getDb());
+    }
+    return this.clipProvider;
+  }
+
+  /**
    * Clear cached providers. Must be called when the client is closed (e.g. after resetDatabase).
    */
   clear(): void {
@@ -165,6 +177,7 @@ export class DatabaseProvider {
     this.fileDecisionProvider = null;
     this.settingsProvider = null;
     this.takeoutProvider = null;
+    this.clipProvider = null;
   }
 
   /**

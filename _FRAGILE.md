@@ -73,6 +73,20 @@ pHash), `hash-phash.ts` (in-house DCT pHash + Hamming distance), `byte-budget.ts
 
 ---
 
+### CLIP — `packages/core/src/clip/`
+
+**Risk**: Wrong near-duplicate candidates, a tampered or wrong model, runaway CPU
+
+**Before touching**:
+- `model-manifest.ts` pins revision + SHA-256; never point it at `main`. A model change needs a new
+  `id` (embeddings are keyed by it) and threshold re-calibration.
+- Embeddings are L2-normalised; `match.ts` relies on dot product = cosine similarity, and on TopK
+  output being sorted. CLIP pairs are review-only, never preselected for deletion.
+- Keep ONNX intra-op threads bounded (default 4): "all cores" spins and costs ~10× CPU.
+- Real-model tests need `GIGGLE_TEST_CLIP_MODEL=/path/to/model.onnx`; run them after changes here.
+
+---
+
 ### Google Takeout linking — `packages/core/src/takeout/`
 
 **Risk**: A photo loses its album, date or location on import; the wrong copy gets deleted

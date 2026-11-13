@@ -39,6 +39,19 @@ export const AppSettings = z.object({
   parallelWorkers: z.number().int().min(1).max(16).default(4),
   moveToTrash: z.boolean().default(true),
 
+  // CLIP visual similarity (RFD-002). Distances are cosine distances (0 = identical). Defaults
+  // come from 5 stock photos: starting values, to be calibrated on the real library.
+  clipEnabled: z.boolean().default(true),
+  clipExecutionProvider: z.enum(["cpu", "coreml", "dml", "cuda"]).default("cpu"),
+  // ONNX intra-op threads shared by concurrent embeddings. Not "all cores": ONNX Runtime's threads
+  // spin while waiting, and oversubscription cost ~10× the CPU per image (measured; RFD-002).
+  clipThreads: z.number().int().min(1).max(64).default(4),
+  clipStrongMaxDistance: z.number().min(0).max(1).default(0.02), // "same photo": crop/mirror/brightness
+  clipReviewMaxDistance: z.number().min(0).max(1).default(0.06), // review cutoff (heavier edits, bursts)
+  clipSimilarShotsEnabled: z.boolean().default(false), // opt-in: review up to clipStoreMaxDistance
+  clipStoreMaxDistance: z.number().min(0).max(1).default(0.12), // pairs stored; slider never recomputes below this
+  clipTopK: z.number().int().min(1).max(1024).default(64), // neighbours considered per image
+
   // UI preferences (persisted across sessions)
   reviewGridSize: z.enum(["sm", "md", "lg", "xl"]).default("md"),
   compareViewMode: z.enum(["large", "balanced", "compact"]).default("balanced"),

@@ -6,8 +6,10 @@
 import { createSignal, signal } from "sigment";
 import { getLogger } from "../services/logger-service";
 import { getSystemHealth as getSystemHealthService, type SystemHealth } from "../services/system-health-service";
-import { navigateTo } from "../state/navigation";
 import type { TakeoutStageStats } from "../services/takeout-service";
+import { navigateTo } from "../state/navigation";
+import { ClipModelBanner } from "./ClipModelBanner";
+import { type ClipStageStats, ClipStatsLine } from "./ClipStats";
 import { errorCategoryLabel } from "./error-labels";
 import { TakeoutReportPanel } from "./TakeoutReport";
 
@@ -26,6 +28,7 @@ interface StageStatsEntry {
   errorBreakdown?: Record<string, number>;
   timingMs?: Record<string, number>;
   takeout?: TakeoutStageStats;
+  clip?: ClipStageStats | { error: string };
   algorithmStats?: {
     sha256: { computed: number; skipped: number; errors: number };
     contentHash: { computed: number; skipped: number; errors: number };
@@ -697,6 +700,7 @@ function PipelineStepComponent(
         errorRow,
         errorBreakdownRow,
         step.stage === "scanning" && stats.takeout ? TakeoutReportPanel(stats.takeout) : null,
+        step.stage === "detecting" && stats.clip ? ClipStatsLine(stats.clip) : null,
       );
     } else if (!progress && _state && _state.totalFiles > 0) {
       // After restart: derive file count for completed non-scanning stages from statusCounts
@@ -1122,6 +1126,8 @@ export function ProcessingView() {
         }
         return null;
       },
+      // CLIP model first-run setup (RFD-002)
+      ClipModelBanner(),
       // Pipeline section
       () => {
         const loading = getLoading();

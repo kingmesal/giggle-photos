@@ -30,8 +30,23 @@ const WORKER_TIMEOUT_MS = 60_000; // 60 seconds per file
 let childProcess: ReturnType<typeof Bun.spawn> | null = null;
 let nextRequestId = 0;
 const pendingRequests = new Map<number, PendingRequest>();
-let readyResolve: ((capabilities: { sharp: boolean; phash: boolean }) => void) | null = null;
-let workerCapabilities: { sharp: boolean; phash: boolean } | null = null;
+/** What the running worker can do; `clip` mirrors WorkerReady.clip (null: no model offered). */
+export interface WorkerCapabilities {
+  sharp: boolean;
+  phash: boolean;
+  clip: WorkerReady["clip"];
+}
+
+/** CLIP model to load in the worker (only a verified file; see clip/model-service.ts). */
+export interface WorkerClipOptions {
+  modelPath: string;
+  provider: string;
+  threads: number;
+}
+
+let readyResolve: ((capabilities: WorkerCapabilities) => void) | null = null;
+let workerCapabilities: WorkerCapabilities | null = null;
+let spawnedWithClip: string | null = null;
 
 /**
  * Ensure the Sharp worker child process is running.
@@ -46,25 +61,39 @@ function resolveWorkerPath(): string {
   return existsSync(bundled) ? bundled : join(import.meta.dir, "sharp-worker.ts");
 }
 
-export async function ensureSharpProcess(): Promise<{ sharp: boolean; phash: boolean }> {
+export async function ensureSharpProcess(clip?: WorkerClipOptions | null): Promise<WorkerCapabilities> {
+  const wantedClip = clip ? `${clip.modelPath}|${clip.provider}|${clip.threads}` : null;
   if (childProcess && workerCapabilities) {
-    return workerCapabilities;
+    // Reuse the worker unless CLIP is now wanted and it was started without it (or differently).
+    if (!wantedClip || wantedClip === spawnedWithClip) return workerCapabilities;
+    shutdownSharpProcess();
   }
+  spawnedWithClip = wantedClip;
 
   const workerPath = resolveWorkerPath();
 
-  const readyPromise = new Promise<{ sharp: boolean; phash: boolean }>((resolve) => {
+  const readyPromise = new Promise<WorkerCapabilities>((resolve) => {
     readyResolve = resolve;
   });
 
   log.debug(`Spawning Sharp worker: ${process.execPath} ${workerPath}`);
 
   childProcess = Bun.spawn([process.execPath, "run", workerPath], {
-    env: { ...process.env, GIGGLE_DECODE_BUDGET_BYTES: String(env.DECODE_MEMORY_BUDGET_MB * 1024 * 1024) },
+    env: {
+      ...process.env,
+      GIGGLE_DECODE_BUDGET_BYTES: String(env.DECODE_MEMORY_BUDGET_MB * 1024 * 1024),
+      ...(clip
+        ? {
+            GIGGLE_CLIP_MODEL_PATH: clip.modelPath,
+            GIGGLE_CLIP_PROVIDER: clip.provider,
+            GIGGLE_CLIP_THREADS: String(clip.threads),
+          }
+        : {}),
+    },
     ipc(message: WorkerMessage) {
       // Handle ready signal
       if ("type" in message && message.type === "ready") {
-        const caps = { sharp: message.sharp, phash: message.phash };
+        const caps: WorkerCapabilities = { sharp: message.sharp, phash: message.phash, clip: message.clip };
         workerCapabilities = caps;
         log.info(
           `Sharp worker ready (sharp: ${caps.sharp}, phash: ${caps.phash}, decode budget: ${Math.round(message.decodeBudgetBytes / 1048576)} MB)`,
@@ -89,10 +118,15 @@ export async function ensureSharpProcess(): Promise<{ sharp: boolean; phash: boo
   });
 
   // Handle child process exit
-  childProcess.exited.then((code) => {
+  const thisChild = childProcess;
+  thisChild.exited.then((code) => {
     log.warn(`Sharp worker process exited with code ${code}`);
+    // A replaced worker exits after its successor started: leave the new worker's state alone.
+    // (shutdownSharpProcess already rejected the old worker's pending requests.)
+    if (childProcess !== thisChild) return;
     childProcess = null;
     workerCapabilities = null;
+    spawnedWithClip = null;
 
     // Reject all pending requests
     for (const [id, pending] of pendingRequests) {
@@ -128,6 +162,21 @@ export async function requestImageAnalysis(filePath: string): Promise<AnalysisRe
   });
 }
 
+/** CLIP embedding only, for images analysed before the model was ready (worker must have CLIP). */
+export async function requestImageEmbedding(filePath: string): Promise<AnalysisResponse> {
+  if (!childProcess) throw new Error("Worker not running");
+  const id = nextRequestId++;
+  const request: AnalysisRequest = { id, filePath, mode: "embed" };
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pendingRequests.delete(id);
+      reject(new Error(`Sharp worker timeout (${WORKER_TIMEOUT_MS}ms) for ${filePath}`));
+    }, WORKER_TIMEOUT_MS);
+    pendingRequests.set(id, { resolve, reject, timer });
+    childProcess?.send(request);
+  });
+}
+
 /**
  * Shut down the Sharp worker process.
  * Call this on application exit.
@@ -137,6 +186,7 @@ export function shutdownSharpProcess(): void {
     childProcess.kill();
     childProcess = null;
     workerCapabilities = null;
+    spawnedWithClip = null;
 
     // Clean up pending requests
     for (const [id, pending] of pendingRequests) {

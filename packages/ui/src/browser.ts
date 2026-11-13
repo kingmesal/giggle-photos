@@ -5,11 +5,6 @@
 
 // Interim Lucide renderer for legacy icon markup (removed with Sigment, RFD-004)
 export { startIconShim } from "./icons/icon-shim";
-export {
-  initTakeoutService,
-  type TakeoutReport,
-  type TakeoutRPC,
-} from "./services/takeout-service";
 // Layout components
 export { AppLayout } from "./layout/AppLayout";
 export { Sidebar } from "./layout/Sidebar";
@@ -19,6 +14,7 @@ export {
   getAppInfo,
   initAppInfoService,
 } from "./services/app-info-service";
+export { type ClipModelStatus, type ClipRPC, initClipService } from "./services/clip-service";
 export {
   type DatabaseInfo,
   type DatabaseRPC,
@@ -55,6 +51,11 @@ export {
   type SystemHealth,
   type SystemHealthRPC,
 } from "./services/system-health-service";
+export {
+  initTakeoutService,
+  type TakeoutReport,
+  type TakeoutRPC,
+} from "./services/takeout-service";
 // State
 export { currentView, type NavItem, navItems, navigateTo, settingsNavItem, type ViewName } from "./state/navigation";
 export { FoldersView, initFoldersService } from "./views/FoldersView";

@@ -1,4 +1,6 @@
 import type { Kysely } from "kysely";
+import type { ClipEmbeddingRecord } from "../zod/clip-embedding";
+import type { ClipMatchRecord } from "../zod/clip-match";
 import type { FileDecisionRecord } from "../zod/file-decision";
 import type { ImageMetadataRecord } from "../zod/image-metadata";
 import type { MediaFileRecord } from "../zod/media-file";
@@ -29,6 +31,8 @@ export type DatabaseSchema = {
   takeoutFolders: TakeoutFolderRecord;
   sidecars: SidecarRecord;
   mediaPairs: MediaPairRecord;
+  clipEmbeddings: ClipEmbeddingRecord;
+  clipMatches: ClipMatchRecord;
 };
 
 /**

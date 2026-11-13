@@ -185,6 +185,19 @@ mock.module("./duplicate-detector", () => ({
   detectDuplicates: mockDetectDuplicates,
 }));
 
+// Mock the CLIP stage (RFD-002); tests below change its result
+const clipResult = {
+  skipped: "model_not_ready",
+  embedded: 0,
+  embedErrors: 0,
+  pairsStored: 0,
+  pairsInReview: 0,
+  pairsStrong: 0,
+  thresholds: { strong: 0.02, review: 0.06, store: 0.12 },
+};
+const mockRunClipStage = mock(async (): Promise<Record<string, unknown>> => clipResult);
+mock.module("../clip/clip-stage", () => ({ runClipStage: mockRunClipStage }));
+
 // Mock Takeout indexing (RFD-003); tests below change its result
 type MockTakeoutResult = { roots: string[]; warnings: string[]; summary: null | Record<string, unknown> };
 const mockIndexTakeout = mock(
@@ -263,6 +276,22 @@ describe("processing-pipeline", () => {
         const scanning = lastStats?.scanning as { takeout?: unknown } | undefined;
         expect(scanning?.takeout).toEqual({ roots: 1, warnings: [], summary });
         mockIndexTakeout.mockImplementation(async () => ({ roots: [], warnings: [], summary: null }));
+      });
+
+      test("CLIP stage results land in the detecting stats; a CLIP failure does not fail the run", async () => {
+        mockFolders = addedFolder();
+        mockTotalFileCount = 10;
+        let lastStats: Record<string, unknown> | undefined;
+        await runPipeline({ onProgress: (p) => (lastStats = p.stageStats as Record<string, unknown>) });
+        expect((lastStats?.detecting as { clip?: unknown } | undefined)?.clip).toEqual(clipResult);
+
+        mockRunClipStage.mockImplementation(async () => {
+          throw new Error("onnx exploded");
+        });
+        const result = await runPipeline({ onProgress: (p) => (lastStats = p.stageStats as Record<string, unknown>) });
+        expect(result.totalFiles).toBeGreaterThan(0);
+        expect((lastStats?.detecting as { clip?: unknown } | undefined)?.clip).toEqual({ error: "onnx exploded" });
+        mockRunClipStage.mockImplementation(async () => clipResult);
       });
 
       test("a Takeout indexing failure is a warning, not a pipeline failure", async () => {

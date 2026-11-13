@@ -1,4 +1,5 @@
-import { ensureAppDataDir, loadUserConfig } from "@giggle-photos/core/config/user-config";
+import { startClipModelSetup } from "@giggle-photos/core/clip/model-service";
+import { ensureAppDataDir, getAppSettings, loadUserConfig } from "@giggle-photos/core/config/user-config";
 import { DatabaseProvider } from "@giggle-photos/core/db/database-provider";
 import { logger } from "@giggle-photos/core/logging/logger";
 import { initUI } from "@giggle-photos/ui";
@@ -16,6 +17,10 @@ ensureAppDataDir();
 await checkAndApplyUpdates();
 
 await DatabaseProvider.getInstance();
+
+// First-run setup (RFD-002): verify or download the CLIP model in the background. Never blocks
+// startup; CLIP work runs once it is ready.
+if (getAppSettings().clipEnabled) void startClipModelSetup();
 
 // Start local file server before window creation so the port is available via RPC
 await startFileServer();

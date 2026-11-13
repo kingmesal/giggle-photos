@@ -9,6 +9,7 @@ import {
   FoldersView,
   getLogger,
   initAppInfoService,
+  initClipService,
   initDatabaseService,
   initFoldersService,
   initLoggerService,
@@ -144,6 +145,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Initialize system health service with RPC
+  const clipRequests = electrobun.rpc?.request;
+  if (clipRequests?.getClipModelStatus && clipRequests.retryClipModelSetup && clipRequests.importClipModelFile) {
+    initClipService({
+      getClipModelStatus: () => clipRequests.getClipModelStatus({}),
+      retryClipModelSetup: () => clipRequests.retryClipModelSetup({}),
+      importClipModelFile: () => clipRequests.importClipModelFile({}),
+    });
+  }
+
   const getTakeoutReportRpc = electrobun.rpc?.request?.getTakeoutReport;
   if (getTakeoutReportRpc) {
     initTakeoutService({ getTakeoutReport: () => getTakeoutReportRpc({}) });
