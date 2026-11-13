@@ -3,6 +3,7 @@ import {
   autoExpandTarget,
   currentStepIndex,
   formatDuration,
+  formatTimings,
   isPausedBetweenStages,
   overallProgress,
 } from "./pipeline-logic";
@@ -50,5 +51,26 @@ describe("pipeline-logic", () => {
     expect(formatDuration(500)).toBe("< 1s");
     expect(formatDuration(12_300)).toBe("12.3s");
     expect(formatDuration(120_000)).toBe("2m");
+  });
+});
+
+describe("formatTimings", () => {
+  test("CLIP and the other single-pass steps get readable names; zero timers are left out", () => {
+    expect(
+      formatTimings({
+        sha256: 12.4,
+        perceptualHash: 3,
+        clipPreprocess: 8,
+        clipInference: 41.6,
+        videoFrames: 900,
+        decode: 0,
+      }),
+    ).toEqual([
+      "SHA-256: 12ms avg  |  ",
+      "pHash: 3ms avg  |  ",
+      "CLIP prep: 8ms avg  |  ",
+      "CLIP model: 42ms avg  |  ",
+      "Video frames (5): 900ms avg",
+    ]);
   });
 });

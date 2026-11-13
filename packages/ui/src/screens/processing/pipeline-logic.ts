@@ -168,6 +168,13 @@ const TIMER_NAMES: Record<string, string> = {
   sha256: "SHA-256",
   contentHash: "Content hash",
   perceptualHash: "pHash",
+  read: "Read",
+  exif: "EXIF",
+  decode: "Decode",
+  budgetWait: "Memory wait",
+  clipPreprocess: "CLIP prep",
+  clipInference: "CLIP model",
+  videoFrames: "Video frames (5)",
 };
 
 /** "SHA-256: 12ms avg  |  pHash: 3ms avg" for the non-zero timers. */

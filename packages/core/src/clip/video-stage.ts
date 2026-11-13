@@ -7,6 +7,7 @@ import type { ClipProvider } from "../db/clip-provider";
 import { getLogger } from "../logging/logger";
 import { requestVideoFrameEmbeddings } from "../scan/sharp-process";
 import { findTool } from "../util/find-tool";
+import type { StageTimer } from "../util/timing";
 import type { ClipPair } from "./match";
 import { CLIP_MODEL } from "./model-manifest";
 import { findVideoPairs } from "./video-match";
@@ -37,6 +38,7 @@ export async function embedVideoFrames(
   videos: { id: number; path: string; durationSec: number }[],
   stats: VideoStageStats,
   onProgress?: (operation: string, done: number, total: number) => void,
+  timer?: StageTimer,
 ): Promise<void> {
   const queue = new PQueue({ concurrency: 2 }); // each video runs ffmpeg 5 times
   let done = 0;
@@ -44,6 +46,7 @@ export async function embedVideoFrames(
     queue.add(async () => {
       try {
         const response = await requestVideoFrameEmbeddings(video.path, video.durationSec);
+        if (response.timings.videoFrames !== undefined) timer?.record("videoFrames", response.timings.videoFrames);
         if (response.clipFrames && response.clipFrames.length > 0) {
           await clip.upsertEmbeddings(
             response.clipFrames.map((frame, frameIndex) => ({

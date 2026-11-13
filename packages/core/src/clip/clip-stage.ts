@@ -9,6 +9,7 @@ import { getAppSettings } from "../config/user-config";
 import { DatabaseProvider } from "../db/database-provider";
 import { getLogger } from "../logging/logger";
 import { ensureSharpProcess, requestImageEmbedding, shutdownSharpProcess } from "../scan/sharp-process";
+import { StageTimer } from "../util/timing";
 import { clipThresholds } from "./clip-settings";
 import { findClipPairs } from "./match";
 import { CLIP_MODEL } from "./model-manifest";
@@ -30,6 +31,8 @@ export interface ClipStageResult extends VideoStageStats {
   pairsInReview: number;
   pairsStrong: number;
   thresholds: { strong: number; review: number; store: number };
+  /** Per-file averages (ms) of the work done in this stage: backfilled photos and video frames. */
+  timingMs?: Record<string, number>;
 }
 
 export interface ClipStageOptions {
@@ -58,6 +61,7 @@ export async function runClipStage(options: ClipStageOptions = {}): Promise<Clip
   if (!workerOptions) return { ...result, skipped: "model_not_ready", detail: getClipModelStatus().state };
 
   const clip = (await DatabaseProvider.getInstance()).getClipProvider();
+  const timer = new StageTimer();
   const missing = await clip.getImagesMissingEmbedding(CLIP_MODEL.id);
   const ffmpeg = findFfmpeg();
   if (!ffmpeg) result.videoSkipped = "no_ffmpeg";
@@ -80,6 +84,7 @@ export async function runClipStage(options: ClipStageOptions = {}): Promise<Clip
       queue.add(async () => {
         try {
           const response = await requestImageEmbedding(file.path);
+          for (const [name, ms] of Object.entries(response.timings)) if (ms !== undefined) timer.record(name, ms);
           if (response.clipEmbedding) {
             await clip.upsertEmbeddings([
               { mediaFileId: file.id, modelId: CLIP_MODEL.id, embedding: Float32Array.from(response.clipEmbedding) },
@@ -98,9 +103,14 @@ export async function runClipStage(options: ClipStageOptions = {}): Promise<Clip
     await queue.onIdle();
     if (videos.length > 0) {
       log.info(`Embedding frames of ${videos.length} videos`);
-      await embedVideoFrames(clip, videos, result, options.onProgress);
+      await embedVideoFrames(clip, videos, result, options.onProgress, timer);
     }
     shutdownSharpProcess();
+  }
+
+  const timings = timer.getAllStats();
+  if (Object.keys(timings).length > 0) {
+    result.timingMs = Object.fromEntries(Object.entries(timings).map(([name, s]) => [name, s.avgMs]));
   }
 
   const { ids, vectors } = await clip.loadEmbeddings(CLIP_MODEL.id, CLIP_MODEL.dimensions);

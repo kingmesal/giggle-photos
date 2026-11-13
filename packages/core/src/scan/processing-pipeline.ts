@@ -481,7 +481,11 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
         const avgPhash = avg("perceptualHash");
         const avgDecode = avg("decode");
         const avgExif = avg("exif");
-        const totalAvg = avg("read") + avgSha + avgExif + avgDecode + avgContent + avgPhash;
+        // CLIP runs in the same pass when the model is ready; on CPU it is usually the largest step.
+        const avgClipPrep = avg("clipPreprocess");
+        const avgClipModel = avg("clipInference");
+        const totalAvg =
+          avg("read") + avgSha + avgExif + avgDecode + avgContent + avgPhash + avgClipPrep + avgClipModel;
         const remaining = total - completed;
 
         updateProgress({
@@ -494,6 +498,8 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
             decode: avgDecode,
             contentHash: avgContent,
             perceptualHash: avgPhash,
+            clipPreprocess: avgClipPrep,
+            clipInference: avgClipModel,
           },
           etaMs: remaining > 0 ? remaining * totalAvg : undefined,
         });
@@ -574,6 +580,7 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
       errors: clipStats && "error" in clipStats ? 1 : 0,
       skipped: 0,
       clip: clipStats,
+      timingMs: clipStats && !("error" in clipStats) ? clipStats.timingMs : undefined,
     };
 
     // After detection completes, mark all hashed files as processed
