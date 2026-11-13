@@ -30,6 +30,15 @@ describe("UpdateStatus", () => {
     expect(r.container.textContent).toBe("");
   });
 
+  test("no percentage from the updater: an activity bar, the size and elapsed time, not a stuck 0%", async () => {
+    rpc({ phase: "downloading", version: "0.1.6", sizeBytes: 241 * 1048576, startedAt: Date.now() - 83_000 });
+    render(<UpdateStatus />);
+    await waitFor(() => expect(screen.getByText("Downloading version 0.1.6")).toBeTruthy());
+    expect(screen.getByTestId("update-indeterminate")).toBeTruthy();
+    expect(screen.queryByText(/0%/)).toBeNull();
+    expect(screen.getByText(/about 241 MB · 1:2[34] elapsed/)).toBeTruthy();
+  });
+
   test("downloading shows the version and progress, then turns into Restart to update", async () => {
     const { api, set } = rpc({
       phase: "downloading",

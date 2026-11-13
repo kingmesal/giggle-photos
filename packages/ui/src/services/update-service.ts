@@ -8,6 +8,8 @@ export interface UpdateState {
   phase: "idle" | "checking" | "up-to-date" | "downloading" | "ready" | "applying" | "error";
   version?: string;
   progress?: number;
+  sizeBytes?: number;
+  startedAt?: number;
   bytesDownloaded?: number;
   totalBytes?: number;
   message?: string;

@@ -136,3 +136,23 @@ button.relative span {
     left 0.2s ease-in-out,
     right 0.2s ease-in-out;
 }
+
+/* Indeterminate progress (update download: the updater reports no percentage). */
+@keyframes update-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+.update-indeterminate {
+  animation: update-indeterminate 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

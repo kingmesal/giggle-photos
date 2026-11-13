@@ -19,6 +19,12 @@ import {
 const mb = (bytes?: number) => (bytes === undefined ? "?" : `${Math.round(bytes / 1048576)} MB`);
 const CARD = "mx-3 mb-2 p-3 rounded-lg border text-xs";
 
+/** "0:42", "12:05" since `startedAt`. */
+export function elapsed(startedAt: number, now = Date.now()): string {
+  const s = Math.max(0, Math.floor((now - startedAt) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 export function UpdateStatus(): ReactNode {
   const first = useRead("update-state", () => loadUpdateState());
   const [polled, setPolled] = useState<UpdateState | null>(null);
@@ -29,25 +35,47 @@ export function UpdateStatus(): ReactNode {
   if (!state) return null;
 
   if (state.phase === "downloading") {
+    const known = state.progress !== undefined;
     const pct = Math.max(0, Math.min(100, state.progress ?? 0));
+    const detail = [
+      known
+        ? state.totalBytes
+          ? `${pct}% · ${mb(state.bytesDownloaded)} of ${mb(state.totalBytes)}`
+          : `${pct}%`
+        : null,
+      state.sizeBytes ? `about ${mb(state.sizeBytes)}` : null,
+      state.startedAt ? `${elapsed(state.startedAt)} elapsed` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
     return (
       <div className={`${CARD} border-blue-500/30 bg-blue-500/10`} role="status" data-testid="update-downloading">
         <p className="font-medium text-fg-2 flex items-center gap-1.5">
           <Download size={14} className="text-accent-blue" />
           {`Downloading version ${state.version ?? "update"}`}
         </p>
-        <div
-          className="mt-2 h-1.5 rounded bg-zinc-300 dark:bg-zinc-700"
-          role="progressbar"
-          aria-valuenow={pct}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
-          <div className="h-1.5 rounded bg-blue-500" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="mt-1 text-fg-muted">
-          {state.totalBytes ? `${pct}% · ${mb(state.bytesDownloaded)} of ${mb(state.totalBytes)}` : `${pct}%`}
-        </p>
+        {known ? (
+          <div
+            className="mt-2 h-1.5 rounded bg-zinc-300 dark:bg-zinc-700"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className="h-1.5 rounded bg-blue-500" style={{ width: `${pct}%` }} />
+          </div>
+        ) : (
+          // The updater reports no percentage (Electrobun 2.0.6): show activity, not a fake 0%.
+          <div
+            className="mt-2 h-1.5 rounded bg-zinc-300 dark:bg-zinc-700 overflow-hidden"
+            role="progressbar"
+            aria-label="Downloading"
+            data-testid="update-indeterminate"
+          >
+            <div className="h-1.5 w-1/3 rounded bg-blue-500 update-indeterminate" />
+          </div>
+        )}
+        {detail && <p className="mt-1 text-fg-muted">{detail}</p>}
         <p className="mt-1 text-fg-faint">Keep working; you can restart into it when it is ready.</p>
       </div>
     );

@@ -14,8 +14,15 @@ export interface UpdateState {
   phase: "idle" | "checking" | "up-to-date" | "downloading" | "ready" | "applying" | "error";
   /** Version being downloaded or ready. */
   version?: string;
-  /** 0–100 while downloading, when known. */
+  /**
+   * 0–100 while downloading, only if Electrobun reports it. Electrobun 2.0.6 downloads full updates
+   * in a native helper that reports nothing until it is done, so this is usually absent.
+   */
   progress?: number;
+  /** Size of the update download in bytes, when the server says (best effort). */
+  sizeBytes?: number;
+  /** When the download started (ms since epoch), for "elapsed". */
+  startedAt?: number;
   bytesDownloaded?: number;
   totalBytes?: number;
   message?: string;
@@ -58,7 +65,10 @@ export function startBackgroundUpdate(): Promise<void> {
         return;
       }
       log.info("Update available; downloading in the background", { version: info.version });
-      state = { phase: "downloading", version: info.version, progress: 0 };
+      state = { phase: "downloading", version: info.version, startedAt: Date.now() };
+      void downloadSize().then((sizeBytes) => {
+        if (sizeBytes && state.phase === "downloading") state = { ...state, sizeBytes };
+      });
       await Updater.downloadUpdate();
       if (!Updater.updateInfo()?.updateReady) throw new Error("The update downloaded but is not ready to install");
       state = { phase: "ready", version: info.version };
@@ -72,6 +82,32 @@ export function startBackgroundUpdate(): Promise<void> {
     }
   })();
   return running;
+}
+
+const OS_NAME: Record<string, string> = { darwin: "macos", win32: "win", linux: "linux" };
+
+/**
+ * The update download's size: read this platform's manifest for the archive name, then ask the
+ * server for its length (HEAD). Best effort; null on any failure.
+ */
+async function downloadSize(): Promise<number | null> {
+  try {
+    const info = await Updater.getLocalInfo();
+    const base = info.baseUrl.replace(/\/+$/, "");
+    const prefix = `${info.channel}-${OS_NAME[process.platform] ?? process.platform}-${process.arch}`;
+    const manifest = (await (
+      await fetch(`${base}/${prefix}-update-v2.json`, { signal: AbortSignal.timeout(10_000) })
+    ).json()) as { artifact?: { file?: string } };
+    if (!manifest.artifact?.file) return null;
+    const head = await fetch(`${base}/${encodeURIComponent(manifest.artifact.file)}`, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(10_000),
+    });
+    const length = Number(head.headers.get("content-length"));
+    return length > 0 ? length : null;
+  } catch {
+    return null;
+  }
 }
 
 export function getUpdateState(): UpdateState {
