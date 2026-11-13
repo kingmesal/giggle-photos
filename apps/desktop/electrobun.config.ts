@@ -42,6 +42,8 @@ export const config = {
     copy: {
       "src/views/index.html": "views/mainview/index.html",
       "src/views/styles.css": "views/mainview/styles.css",
+      // Built by scripts/build-css.ts (preBuild); no runtime CDN.
+      ".build-assets/tailwind.css": "views/mainview/tailwind.css",
       // Desktop package.json for About (version + electrobun dependency) at runtime
       "package.json": "bun/package.json",
       // Sharp worker runs in a child process to isolate GLib from Chromium.
@@ -50,7 +52,7 @@ export const config = {
     },
   },
   scripts: {
-    preBuild: "scripts/build-worker.ts",
+    preBuild: "scripts/prebuild.ts",
   },
   release: {
     baseUrl: process.env.RELEASE_BASE_URL || "https://github.com/kingmesal/giggle-photos/releases/latest/download",

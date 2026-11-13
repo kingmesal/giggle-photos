@@ -124,8 +124,9 @@ New, from RFD-002/003:
 - In-house `useRead` / `useAction` / `useInterval` / `useDocumentKeys` and a `useSyncExternalStore`
   store in `packages/ui/src/external/`, the only files allowed to call `useEffect`.
 - Routing: a navigation store (no router). Large review groups use TanStack Virtual (> 120 files).
-- Tailwind is still loaded from its CDN script at runtime (as before the rewrite); building the CSS at
-  build time would make the app render styled offline.
+- Tailwind (v3.4, same utilities the old CDN script provided) is compiled at build time by
+  `apps/desktop/scripts/build-css.ts` (Electrobun preBuild and the E2E server), so the app renders
+  styled offline. Config: `apps/desktop/tailwind.config.js`.
 
 ## Alternatives Considered
 

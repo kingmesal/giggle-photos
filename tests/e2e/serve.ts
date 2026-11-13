@@ -5,6 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildCss } from "../../apps/desktop/scripts/build-css";
 
 const PROJECT_ROOT = join(import.meta.dir, "../..");
 
@@ -36,6 +37,8 @@ const bundlePath = join(import.meta.dir, ".test-build/test-entry.js");
 
 // Read static assets
 const stylesCSS = readFileSync(join(VIEWS_DIR, "styles.css"), "utf-8");
+// Same build-time Tailwind stylesheet the app ships (no CDN).
+const tailwindCSS = readFileSync(buildCss(join(import.meta.dir, ".test-build/tailwind.css")), "utf-8");
 
 // HTML shell (mirrors apps/desktop/src/views/index.html but uses test bundle)
 const html = `<!DOCTYPE html>
@@ -44,39 +47,7 @@ const html = `<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Giggle Photos</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            fg: {
-              DEFAULT: 'var(--fg)',
-              2: 'var(--fg-2)',
-              3: 'var(--fg-3)',
-              muted: 'var(--fg-muted)',
-              faint: 'var(--fg-faint)',
-            },
-            surface: {
-              DEFAULT: 'var(--surface)',
-              card: 'var(--surface-card)',
-              inset: 'var(--surface-inset)',
-              hover: 'var(--surface-hover)',
-              active: 'var(--surface-active)',
-            },
-            edge: { DEFAULT: 'var(--edge)' },
-            accent: {
-              green: 'var(--accent-green)',
-              blue: 'var(--accent-blue)',
-              amber: 'var(--accent-amber)',
-              red: 'var(--accent-red)',
-            },
-          }
-        }
-      }
-    }
-  </script>
+  <style>${tailwindCSS}</style>
   <style>${stylesCSS}</style>
 </head>
 <body class="bg-surface text-fg">
