@@ -1,6 +1,7 @@
 import { $ } from "bun";
 import { DatabaseProvider } from "../db/database-provider";
 import { getLogger } from "../logging/logger";
+import { findTool } from "../util/find-tool";
 import type { StageTimer } from "../util/timing";
 
 const log = getLogger("core:metadata-video");
@@ -43,18 +44,9 @@ async function checkFfprobeAvailable(): Promise<string | null> {
   }
 
   ffprobeChecked = true;
-
-  try {
-    const result = await $`which ffprobe`.text();
-    ffprobeAvailable = result.trim() || null;
-    if (ffprobeAvailable) {
-      log.debug(`ffprobe found at: ${ffprobeAvailable}`);
-    }
-  } catch {
-    ffprobeAvailable = null;
-    log.warn("ffprobe not found on system - video metadata extraction will be skipped");
-  }
-
+  ffprobeAvailable = findTool("ffprobe");
+  if (ffprobeAvailable) log.debug(`ffprobe found at: ${ffprobeAvailable}`);
+  else log.warn("ffprobe not found - video metadata extraction will be skipped", { PATH: process.env.PATH });
   return ffprobeAvailable;
 }
 
@@ -72,7 +64,7 @@ export async function getVideoMetadata(filePath: string): Promise<FFProbeOutput 
 
   try {
     // Use quiet mode, output JSON, show format and streams
-    const result = await $`ffprobe -v quiet -print_format json -show_format -show_streams ${filePath}`.json();
+    const result = await $`${ffprobe} -v quiet -print_format json -show_format -show_streams ${filePath}`.json();
     return result as FFProbeOutput;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

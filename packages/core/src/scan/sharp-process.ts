@@ -13,6 +13,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { env } from "../config/env";
 import { getLogger } from "../logging/logger";
+import { findTool } from "../util/find-tool";
 import type { AnalysisRequest, AnalysisResponse, WorkerReady } from "./analysis-protocol";
 
 const log = getLogger("core:sharp-process");
@@ -82,6 +83,8 @@ export async function ensureSharpProcess(clip?: WorkerClipOptions | null): Promi
     env: {
       ...process.env,
       GIGGLE_DECODE_BUDGET_BYTES: String(env.DECODE_MEMORY_BUDGET_MB * 1024 * 1024),
+      // The worker runs ffmpeg for video frames; pass the full path (menu launches get a minimal PATH).
+      ...(findTool("ffmpeg") ? { GIGGLE_FFMPEG_PATH: findTool("ffmpeg") as string } : {}),
       ...(clip
         ? {
             GIGGLE_CLIP_MODEL_PATH: clip.modelPath,

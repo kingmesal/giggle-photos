@@ -6,6 +6,7 @@ import PQueue from "p-queue";
 import type { ClipProvider } from "../db/clip-provider";
 import { getLogger } from "../logging/logger";
 import { requestVideoFrameEmbeddings } from "../scan/sharp-process";
+import { findTool } from "../util/find-tool";
 import type { ClipPair } from "./match";
 import { CLIP_MODEL } from "./model-manifest";
 import { findVideoPairs } from "./video-match";
@@ -20,9 +21,9 @@ export interface VideoStageStats {
   videoPairs: number;
 }
 
-/** ffmpeg path, or null when it is not installed. */
+/** ffmpeg path (PATH, then the usual install folders), or null when it is not installed. */
 export function findFfmpeg(): string | null {
-  return Bun.which("ffmpeg");
+  return findTool("ffmpeg");
 }
 
 /** Videos still needing frame embeddings (empty when ffmpeg is missing). */

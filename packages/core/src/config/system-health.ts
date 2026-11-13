@@ -1,8 +1,9 @@
 /**
  * System health checks for required external dependencies
  */
-import { $ } from "bun";
+
 import { getLogger } from "../logging/logger";
+import { findTool, resetToolCache } from "../util/find-tool";
 
 const log = getLogger("core:system-health");
 
@@ -36,27 +37,15 @@ export async function checkFfprobeAvailable(): Promise<{ available: boolean; pat
   }
 
   ffprobeChecked = true;
-  const platform = process.platform;
-
-  try {
-    // Use 'where' on Windows, 'which' on Unix-like systems
-    let result: string;
-    if (platform === "win32") {
-      result = await $`where ffprobe`.text();
-    } else {
-      result = await $`which ffprobe`.text();
-    }
-    const path = result.trim().split("\n")[0] || null;
-
-    if (path) {
-      log.debug(`ffprobe found at: ${path}`);
-      ffprobeResult = { available: true, path };
-    }
-  } catch {
+  // PATH, then the usual install folders: apps started from a menu or Finder get a minimal PATH.
+  const path = findTool("ffprobe");
+  if (path) {
+    log.debug(`ffprobe found at: ${path}`);
+    ffprobeResult = { available: true, path };
+  } else {
     ffprobeResult = { available: false, path: null };
-    log.warn("ffprobe not found on system - video processing will not be available");
+    log.warn("ffprobe not found - video processing will not be available", { PATH: process.env.PATH });
   }
-
   return ffprobeResult;
 }
 
@@ -82,4 +71,5 @@ export async function getSystemHealth(): Promise<SystemHealth> {
 export function resetHealthCache(): void {
   ffprobeChecked = false;
   ffprobeResult = { available: false, path: null };
+  resetToolCache();
 }
