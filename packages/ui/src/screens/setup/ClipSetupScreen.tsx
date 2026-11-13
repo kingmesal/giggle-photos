@@ -80,7 +80,7 @@ export function ClipSetupScreen(): ReactNode {
         className="max-w-lg w-full bg-surface-card rounded-xl border border-edge shadow-2xl p-6 space-y-4"
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-teal-500/20 text-teal-700 dark:text-teal-400 flex items-center justify-center">
             <ScanEye size={20} />
           </div>
           <div>

@@ -35,7 +35,7 @@ export function StatsCards({ stats }: { stats: FolderStats }): ReactElement {
     <div className="grid grid-cols-5 gap-4 mb-6">
       <StatsCard
         icon={Folders}
-        iconColor="bg-violet-500/20 text-violet-400"
+        iconColor="bg-violet-500/20 text-violet-700 dark:text-violet-400"
         value={stats.folderCount}
         label="Folders"
       />
@@ -47,7 +47,7 @@ export function StatsCards({ stats }: { stats: FolderStats }): ReactElement {
       />
       <StatsCard
         icon={Film}
-        iconColor="bg-violet-500/20 text-violet-400"
+        iconColor="bg-violet-500/20 text-violet-700 dark:text-violet-400"
         value={formatApprox(stats.totalVideos)}
         label="Videos"
       />

@@ -130,7 +130,7 @@ function SaveBar({ s, allDecided }: { s: ReviewState; allDecided: boolean }): Re
             className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
               canSubmit
                 ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                : "bg-emerald-600/50 text-emerald-300 cursor-not-allowed"
+                : "bg-emerald-600/50 text-emerald-800 dark:text-emerald-300 cursor-not-allowed"
             }`}
             onClick={() => void saveAndNext()}
             disabled={!canSubmit}
@@ -177,10 +177,10 @@ export function GroupReview(): ReactNode {
           <div className="flex items-center gap-3 flex-wrap">
             <span className="px-2 py-0.5 rounded text-sm font-medium bg-surface-inset text-fg-3">{`${files.length} files`}</span>
             {group.minPhashDistance !== undefined && (
-              <span className="text-sm text-orange-400">{`Min distance: ${group.minPhashDistance}`}</span>
+              <span className="text-sm text-orange-700 dark:text-orange-400">{`Min distance: ${group.minPhashDistance}`}</span>
             )}
             {group.method === "clip" && (
-              <span className="text-sm text-teal-400" data-testid="clip-review-note">
+              <span className="text-sm text-teal-700 dark:text-teal-400" data-testid="clip-review-note">
                 {`Closest: ${group.minClipDistance?.toFixed(3) ?? "—"} · nothing preselected: bursts and edits look alike`}
               </span>
             )}

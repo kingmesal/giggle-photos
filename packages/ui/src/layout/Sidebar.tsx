@@ -46,7 +46,7 @@ function StatusFooter() {
         Settings
       </button>
       <div className="flex items-center gap-2 px-3 py-2">
-        <Sun size={16} className={isDark ? "text-fg-faint" : "text-amber-400"} />
+        <Sun size={16} className={isDark ? "text-fg-faint" : "text-amber-700 dark:text-amber-400"} />
         <button
           type="button"
           className={`relative w-10 h-5 rounded-full cursor-pointer ${isDark ? "bg-blue-500/40" : "bg-zinc-300/40 dark:bg-zinc-600/40"}`}
@@ -57,7 +57,7 @@ function StatusFooter() {
             className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm ${isDark ? "left-5" : "left-0.5"}`}
           />
         </button>
-        <Moon size={16} className={isDark ? "text-blue-400" : "text-fg-faint"} />
+        <Moon size={16} className={isDark ? "text-blue-700 dark:text-blue-400" : "text-fg-faint"} />
       </div>
       <div className="-mx-3 border-t border-edge" />
       <div className="px-3 py-2 rounded-lg bg-zinc-100/50 dark:bg-zinc-800/50 text-xs">
@@ -78,7 +78,7 @@ export function Sidebar() {
     <aside className="w-64 bg-surface-card border-r border-edge flex flex-col h-full">
       <div className="p-4 border-b border-edge">
         <h1 className="text-lg font-semibold flex items-center gap-2 text-fg">
-          <Images size={20} className="text-blue-400" />
+          <Images size={20} className="text-blue-700 dark:text-blue-400" />
           Giggle Photos
         </h1>
       </div>

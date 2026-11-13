@@ -85,18 +85,21 @@ export function FolderRow({ folder, actions }: { folder: ScanFolder; actions: Fo
       className="flex items-center gap-4 px-5 py-4 hover:bg-zinc-200/30 dark:hover:bg-zinc-700/30 transition-colors group"
       data-testid="folder-row"
     >
-      <FolderOpen size="1em" className={`${ICON} text-2xl text-amber-400 ${isScanning ? "animate-pulse" : ""}`} />
+      <FolderOpen
+        size="1em"
+        className={`${ICON} text-2xl text-amber-700 dark:text-amber-400 ${isScanning ? "animate-pulse" : ""}`}
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="font-medium truncate">{folder.path}</p>
         </div>
         <div className="flex items-center gap-4 text-xs text-fg-muted mt-1">
           <span>
-            <Image size="1em" className={`${ICON} text-blue-400 mr-1`} />
+            <Image size="1em" className={`${ICON} text-blue-700 dark:text-blue-400 mr-1`} />
             {`${formatApprox(folder.imageCount)} images`}
           </span>
           <span>
-            <Film size="1em" className={`${ICON} text-violet-400 mr-1`} />
+            <Film size="1em" className={`${ICON} text-violet-700 dark:text-violet-400 mr-1`} />
             {`${formatApprox(folder.videoCount)} videos`}
           </span>
           <span>

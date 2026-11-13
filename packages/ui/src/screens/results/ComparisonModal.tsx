@@ -191,7 +191,7 @@ export function ComparisonModal({ keepFile, compareFile, decisions }: Comparison
         <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
           {buildMetaRows(keepFile, compareFile).map((row) => {
             const differs = row.keepVal !== row.compareVal;
-            const val = `text-fg-2 text-sm break-all ${differs ? "text-amber-300" : ""}`;
+            const val = `text-fg-2 text-sm break-all ${differs ? "text-amber-800 dark:text-amber-300" : ""}`;
             return (
               <div key={row.label} className={`grid grid-cols-3 px-4 py-1.5 ${differs ? "bg-amber-500/5" : ""}`}>
                 <span className="text-fg-muted text-sm">{row.label}</span>

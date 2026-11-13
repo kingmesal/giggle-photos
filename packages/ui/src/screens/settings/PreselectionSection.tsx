@@ -32,7 +32,7 @@ export function PreselectionSection({ draft, update }: SectionProps): ReactNode 
   return (
     <SettingsSection
       icon={<ListOrdered size={16} />}
-      iconColor="bg-violet-500/20 text-violet-400"
+      iconColor="bg-violet-500/20 text-violet-700 dark:text-violet-400"
       title="Preselection"
       description="When duplicates disagree, the first rule that tells the copies apart decides what is kept"
     >

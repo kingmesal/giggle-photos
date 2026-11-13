@@ -46,7 +46,7 @@ function DialogBody({ status }: { status: ResetStatus }): ReactNode {
       </p>
       <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
         <p className="text-sm text-accent-red font-medium mb-1">This will permanently delete:</p>
-        <ul className="text-sm text-red-400/80 space-y-1 list-disc list-inside">
+        <ul className="text-sm text-red-700 dark:text-red-400/80 space-y-1 list-disc list-inside">
           <li>All indexed scan folders and file data</li>
           <li>All duplicate detection results and review decisions</li>
           <li>Cached video thumbnails</li>

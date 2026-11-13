@@ -37,7 +37,9 @@ function ApplyButton({ s }: { s: ReviewState }): ReactNode {
     <button
       type="button"
       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-        disabled ? "bg-red-600/30 text-red-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-500 text-white"
+        disabled
+          ? "bg-red-600/30 text-red-800 dark:text-red-300 cursor-not-allowed"
+          : "bg-red-600 hover:bg-red-500 text-white"
       }`}
       onClick={disabled ? undefined : () => void openApplyDialog()}
       disabled={disabled}

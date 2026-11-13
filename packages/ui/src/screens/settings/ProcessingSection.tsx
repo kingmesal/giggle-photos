@@ -27,7 +27,7 @@ export function ProcessingSection({ draft, update }: SectionProps): ReactNode {
       <div>
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
           <div className="flex items-start gap-2">
-            <Info size={14} className="text-blue-400 mt-0.5" />
+            <Info size={14} className="text-blue-700 dark:text-blue-400 mt-0.5" />
             <div className="flex-1 text-xs">
               <p className="text-accent-blue font-medium mb-1">Perceptual Hashing Hamming Distance</p>
               <p className="text-accent-blue">

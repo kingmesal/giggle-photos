@@ -31,7 +31,7 @@ export function RemovalSection({ draft, update, trash }: SectionProps & { trash:
   return (
     <SettingsSection
       icon={<ShieldCheck size={16} />}
-      iconColor="bg-amber-500/20 text-amber-400"
+      iconColor="bg-amber-500/20 text-amber-700 dark:text-amber-400"
       title="Removal"
       description="What happens to files you remove"
     >

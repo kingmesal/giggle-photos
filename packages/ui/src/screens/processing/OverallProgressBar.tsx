@@ -10,7 +10,7 @@ export function OverallProgressBar({ overall, paused }: { overall: OverallProgre
         <div className="flex items-center justify-center gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/20 border border-amber-500/30">
           <Pause size="1em" className="text-accent-amber" aria-hidden="true" />
           <span className="text-accent-amber font-medium">Paused</span>
-          <span className="text-amber-400/70">— Click Resume to continue</span>
+          <span className="text-amber-700 dark:text-amber-400/70">— Click Resume to continue</span>
         </div>
       )}
       <div className="flex items-center justify-between text-sm mb-2">

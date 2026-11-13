@@ -115,7 +115,7 @@ export function OwnerDevicesDialog({
         aria-labelledby="owner-devices-title"
       >
         <div className="px-6 py-4 border-b border-edge flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-violet-500/20 text-violet-400 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-violet-500/20 text-violet-700 dark:text-violet-400 flex items-center justify-center">
             <Smartphone size="1em" className={`${ICON} text-xl`} />
           </div>
           <div className="min-w-0">

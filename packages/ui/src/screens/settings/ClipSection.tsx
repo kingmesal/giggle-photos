@@ -68,13 +68,13 @@ export function ClipSection({ draft, update }: SectionProps): ReactNode {
   return (
     <SettingsSection
       icon={<ScanEye size={16} />}
-      iconColor="bg-violet-500/20 text-violet-400"
+      iconColor="bg-violet-500/20 text-violet-700 dark:text-violet-400"
       title="Visual Similarity (CLIP)"
       description="Find the same photo after edits, using an on-device image model"
     >
       <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
         <div className="flex items-start gap-2">
-          <Info size={14} className="text-blue-400 mt-0.5" />
+          <Info size={14} className="text-blue-700 dark:text-blue-400 mt-0.5" />
           <p className="flex-1 text-xs text-accent-blue">
             Distances are cosine distances (0 = identical). The defaults are starting values: calibrate them on your own
             library. Pairs up to the storage cutoff are stored, so moving the review distances below it needs no

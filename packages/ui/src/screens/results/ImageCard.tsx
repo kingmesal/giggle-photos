@@ -144,15 +144,17 @@ function ImageCardInner(props: ImageCardProps): ReactNode {
           <span>{formatBytes(file.size)}</span>
           {dimensions && <span>{dimensions}</span>}
           <span className="uppercase">{file.extension}</span>
-          {phashDistance !== undefined && <span className="text-orange-400">{`d=${phashDistance}`}</span>}
+          {phashDistance !== undefined && (
+            <span className="text-orange-700 dark:text-orange-400">{`d=${phashDistance}`}</span>
+          )}
           {clipDistance !== undefined && (
             <span
-              className="text-teal-400"
+              className="text-teal-700 dark:text-teal-400"
               title="CLIP cosine distance to its closest match"
             >{`v=${clipDistance.toFixed(3)}`}</span>
           )}
-          {timeDiff && <span className="text-blue-400">{timeDiff}</span>}
-          {gps && <span className="text-green-400">{gps}</span>}
+          {timeDiff && <span className="text-blue-700 dark:text-blue-400">{timeDiff}</span>}
+          {gps && <span className="text-green-700 dark:text-green-400">{gps}</span>}
         </div>
       </div>
     </div>

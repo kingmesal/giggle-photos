@@ -22,17 +22,17 @@ export function FfmpegWarning({ health }: { health: SystemHealth }): ReactNode {
         <TriangleAlert size="1em" className="text-accent-amber text-xl mt-0.5" aria-hidden="true" />
         <div className="flex-1">
           <h3 className="text-accent-amber font-semibold mb-1">FFmpeg Not Installed</h3>
-          <p className="text-amber-200/80 text-sm mb-3">
+          <p className="text-amber-800 dark:text-amber-200/80 text-sm mb-3">
             FFmpeg is required for video processing and metadata extraction. Video files will be skipped during
             processing until ffprobe is installed.
           </p>
           <div className="bg-zinc-50/50 dark:bg-zinc-900/50 rounded-lg p-3 mb-3">
             <p className="text-fg-muted text-xs mb-2 font-medium">Installation instructions:</p>
-            <pre className="text-amber-200/90 text-xs font-mono whitespace-pre-wrap">
+            <pre className="text-amber-800 dark:text-amber-200/90 text-xs font-mono whitespace-pre-wrap">
               {ffmpegInstructions(health.platform)}
             </pre>
           </div>
-          <p className="text-amber-200/60 text-xs">
+          <p className="text-amber-800 dark:text-amber-200/60 text-xs">
             <Info size="1em" className={`${INLINE_ICON} mr-1`} aria-hidden="true" />
             Restart the application after installing FFmpeg to enable video processing.
           </p>

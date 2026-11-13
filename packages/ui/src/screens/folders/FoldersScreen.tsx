@@ -41,7 +41,7 @@ export function FoldersScreen(): ReactElement {
         )}
         <StatsCards stats={model.stats} />
         <div className="bg-zinc-100/50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50 p-4 mb-4 flex items-start gap-3">
-          <Info size="1em" className={`${ICON} text-blue-400 mt-0.5 flex-shrink-0`} />
+          <Info size="1em" className={`${ICON} text-blue-700 dark:text-blue-400 mt-0.5 flex-shrink-0`} />
           <div className="text-sm">
             <p className="text-fg-3 font-medium">Folder Priority for Duplicate Resolution</p>
             <p className="text-fg-faint mt-1">

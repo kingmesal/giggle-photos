@@ -13,7 +13,7 @@ export function DeleteAllDialog(): ReactNode {
     <Dialog onClose={closeDialog}>
       <DialogHeader
         icon={<TriangleAlert size="1em" />}
-        iconClass="bg-amber-500/20 text-amber-400"
+        iconClass="bg-amber-500/20 text-amber-700 dark:text-amber-400"
         title="Delete All Files?"
         subtitle="No file will be kept in this group"
       />
