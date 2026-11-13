@@ -570,22 +570,19 @@ describe("MediaFileProvider", () => {
   });
 
   describe("getFilesNeedingHashing", () => {
-    test("returns files with status 'metadata'", async () => {
-      await provider.insertMediaFile(createMediaFileData({ path: "/a.jpg", status: "metadata" }));
+    test("returns pending/metadata images and videos whose metadata is done", async () => {
+      await provider.insertMediaFile(createMediaFileData({ path: "/a.jpg", status: "pending" }));
       await provider.insertMediaFile(createMediaFileData({ path: "/b.jpg", status: "metadata" }));
-      await provider.insertMediaFile(createMediaFileData({ path: "/c.jpg", status: "pending" }));
+      await provider.insertMediaFile(createMediaFileData({ path: "/c.mp4", fileType: "video", status: "metadata" }));
       await provider.insertMediaFile(createMediaFileData({ path: "/d.jpg", status: "hashed" }));
 
       const results = await provider.getFilesNeedingHashing();
 
-      expect(results).toHaveLength(2);
-      expect(results.every((f) => f.status === "metadata")).toBe(true);
-      expect(results[0].path).toBe("/a.jpg");
-      expect(results[1].path).toBe("/b.jpg");
+      expect(results.map((f) => f.path)).toEqual(["/a.jpg", "/b.jpg", "/c.mp4"]);
     });
 
-    test("does not return files with status pending, hashed, processed, or error", async () => {
-      await provider.insertMediaFile(createMediaFileData({ path: "/a.jpg", status: "pending" }));
+    test("excludes pending videos and hashed, processed or errored files", async () => {
+      await provider.insertMediaFile(createMediaFileData({ path: "/a.mp4", fileType: "video", status: "pending" }));
       await provider.insertMediaFile(createMediaFileData({ path: "/b.jpg", status: "hashed" }));
       await provider.insertMediaFile(createMediaFileData({ path: "/c.jpg", status: "processed" }));
       await provider.insertMediaFile(createMediaFileData({ path: "/d.jpg", status: "error" }));

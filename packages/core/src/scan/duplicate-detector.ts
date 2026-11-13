@@ -3,7 +3,7 @@ import { getLogger } from "../logging/logger";
 
 const log = getLogger("core:duplicate-detector");
 
-import { hammingDistance } from "./hash-phash";
+import { hammingDistanceHalves, phashHalves } from "./hash-phash";
 
 /**
  * Options for duplicate detection.
@@ -58,7 +58,20 @@ export async function detectDuplicates(options?: DetectionOptions): Promise<Dete
     .orderBy("id", "asc")
     .execute();
 
-  const phashTotal = imagesWithPhash.length;
+  // Parse every hash once, outside the O(n²) loop. A malformed hash (e.g. the legacy 64-char
+  // bit-string format) is skipped with a warning rather than failing detection.
+  const parsed: { id: number; halves: [number, number] }[] = [];
+  let invalidHashes = 0;
+  for (const file of imagesWithPhash) {
+    try {
+      parsed.push({ id: file.id as number, halves: phashHalves(file.perceptualHash as string) });
+    } catch {
+      invalidHashes++;
+    }
+  }
+  if (invalidHashes > 0) log.warn(`Skipped ${invalidHashes} images with a malformed perceptual hash`);
+
+  const phashTotal = parsed.length;
   log.info(`Found ${phashTotal} images with perceptual hashes`);
 
   if (phashTotal < 2) {
@@ -75,19 +88,15 @@ export async function detectDuplicates(options?: DetectionOptions): Promise<Dete
   const BATCH_SIZE = 100;
   let batch: { mediaFileId1: number; mediaFileId2: number; distance: number }[] = [];
 
-  for (let i = 0; i < imagesWithPhash.length; i++) {
-    const file1 = imagesWithPhash[i];
+  for (let i = 0; i < parsed.length; i++) {
+    const file1 = parsed[i];
     if (!file1) continue;
+    const file1Id = file1.id;
 
-    const file1Id = file1.id as number;
-    const file1Phash = file1.perceptualHash as string;
-
-    for (let j = i + 1; j < imagesWithPhash.length; j++) {
-      const file2 = imagesWithPhash[j];
+    for (let j = i + 1; j < parsed.length; j++) {
+      const file2 = parsed[j];
       if (!file2) continue;
-
-      const file2Id = file2.id as number;
-      const file2Phash = file2.perceptualHash as string;
+      const file2Id = file2.id;
       comparisons++;
 
       // Progress update every 1000 comparisons
@@ -103,11 +112,9 @@ export async function detectDuplicates(options?: DetectionOptions): Promise<Dete
         continue;
       }
 
-      // Calculate hamming distance
-      const dist = await hammingDistance(file1Phash, file2Phash);
-
-      // Skip if module not available or distance exceeds threshold
-      if (dist < 0 || dist > phashThreshold) {
+      // Hamming distance on pre-split 32-bit halves: synchronous, no parsing, no allocation
+      const dist = hammingDistanceHalves(file1.halves, file2.halves);
+      if (dist > phashThreshold) {
         continue;
       }
 

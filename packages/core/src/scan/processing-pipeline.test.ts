@@ -31,7 +31,6 @@ interface MockDetectionResult {
 
 // Mock implementations
 let mockScanFolder: ReturnType<typeof mock>;
-let mockProcessImageMetadataBatch: ReturnType<typeof mock>;
 let mockProcessVideoMetadataBatch: ReturnType<typeof mock>;
 let mockProcessHashBatch: ReturnType<typeof mock>;
 let mockDetectDuplicates: ReturnType<typeof mock>;
@@ -138,16 +137,6 @@ mock.module("./file-scanner", () => ({
   scanFolder: mockScanFolder,
 }));
 
-mockProcessImageMetadataBatch = mock(
-  (_options?: { onProgress?: (completed: number, total: number) => void }): Promise<MockMetadataBatchResult> => {
-    return Promise.resolve({ processed: 5, errors: 0, skipped: 0 });
-  },
-);
-
-mock.module("./metadata-image", () => ({
-  processImageMetadataBatch: mockProcessImageMetadataBatch,
-}));
-
 mockProcessVideoMetadataBatch = mock(
   (_options?: { onProgress?: (completed: number, total: number) => void }): Promise<MockMetadataBatchResult> => {
     return Promise.resolve({ processed: 2, errors: 0, skipped: 0 });
@@ -219,7 +208,6 @@ describe("processing-pipeline", () => {
 
     // Reset all mock call counts
     mockScanFolder.mockClear();
-    mockProcessImageMetadataBatch.mockClear();
     mockProcessVideoMetadataBatch.mockClear();
     mockProcessHashBatch.mockClear();
     mockDetectDuplicates.mockClear();
@@ -366,7 +354,7 @@ describe("processing-pipeline", () => {
     });
 
     describe("metadata extraction stage", () => {
-      test("executes image and video metadata extraction in parallel", async () => {
+      test("metadata stage runs video metadata only; images are analysed in the hashing stage", async () => {
         mockFolders = [
           {
             id: 1,
@@ -384,8 +372,8 @@ describe("processing-pipeline", () => {
 
         await runPipeline();
 
-        expect(mockProcessImageMetadataBatch).toHaveBeenCalledTimes(1);
         expect(mockProcessVideoMetadataBatch).toHaveBeenCalledTimes(1);
+        expect(mockProcessHashBatch).toHaveBeenCalledTimes(1);
       });
 
       test("accumulates errors from metadata extraction", async () => {
@@ -404,17 +392,14 @@ describe("processing-pipeline", () => {
         ];
         mockTotalFileCount = 15;
 
-        mockProcessImageMetadataBatch.mockImplementation(() =>
-          Promise.resolve({ processed: 8, errors: 2, skipped: 0 }),
-        );
         mockProcessVideoMetadataBatch.mockImplementation(() =>
           Promise.resolve({ processed: 4, errors: 1, skipped: 0 }),
         );
 
         const result = await runPipeline();
 
-        // Errors accumulate: 2 from images + 1 from videos + 0 from hashing
-        expect(result.errors).toBeGreaterThanOrEqual(3);
+        // Errors accumulate: 1 from video metadata + 0 from analysis
+        expect(result.errors).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -825,7 +810,6 @@ describe("processing-pipeline", () => {
           // Expected
         }
 
-        expect(mockProcessImageMetadataBatch).not.toHaveBeenCalled();
         expect(mockProcessVideoMetadataBatch).not.toHaveBeenCalled();
       });
 
@@ -896,7 +880,6 @@ describe("processing-pipeline", () => {
 
         await runPipeline();
 
-        expect(mockProcessImageMetadataBatch).not.toHaveBeenCalled();
         expect(mockProcessVideoMetadataBatch).not.toHaveBeenCalled();
         expect(mockProcessHashBatch).not.toHaveBeenCalled();
         expect(mockDetectDuplicates).not.toHaveBeenCalled();
@@ -947,9 +930,6 @@ describe("processing-pipeline", () => {
         mockTotalFileCount = 15;
 
         // Set up errors in each stage
-        mockProcessImageMetadataBatch.mockImplementation(() =>
-          Promise.resolve({ processed: 8, errors: 2, skipped: 0 }),
-        );
         mockProcessVideoMetadataBatch.mockImplementation(() =>
           Promise.resolve({ processed: 4, errors: 1, skipped: 0 }),
         );
@@ -968,8 +948,8 @@ describe("processing-pipeline", () => {
 
         const result = await runPipeline();
 
-        // Total errors: 2 (image) + 1 (video) + 6 (hashing) = 9
-        expect(result.errors).toBe(9);
+        // Total errors: 1 (video metadata) + 6 (analysis) = 7
+        expect(result.errors).toBe(7);
       });
     });
 

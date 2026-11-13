@@ -149,19 +149,32 @@ export class MediaFileProvider {
   }
 
   /**
-   * Get files that need hash computation.
-   * Returns files with status 'metadata' (just had metadata extracted).
-   * Ordered by id for deterministic processing.
+   * Get files ready for the analysis (hashing) stage. Ordered by id for deterministic processing.
+   * - Images: status 'pending' — the single-pass worker extracts metadata and hashes together
+   *   (RFD-002). 'metadata' is also accepted for databases from before that change.
+   * - Videos: status 'metadata' — video metadata (ffprobe) is still its own stage.
    */
   async getFilesNeedingHashing(limit?: number): Promise<MediaFile[]> {
-    let query = this.db.selectFrom("mediaFiles").selectAll().where("status", "=", "metadata").orderBy("id", "asc");
-
+    let images = this.db
+      .selectFrom("mediaFiles")
+      .selectAll()
+      .where("fileType", "=", "image")
+      .where("status", "in", ["pending", "metadata"])
+      .orderBy("id", "asc");
+    let videos = this.db
+      .selectFrom("mediaFiles")
+      .selectAll()
+      .where("fileType", "=", "video")
+      .where("status", "=", "metadata")
+      .orderBy("id", "asc");
     if (limit !== undefined) {
-      query = query.limit(limit);
+      images = images.limit(limit);
+      videos = videos.limit(limit);
     }
 
-    const results = await query.execute();
-    return results.map((row) => MediaFile.parse(row));
+    const [imageRows, videoRows] = await Promise.all([images.execute(), videos.execute()]);
+    const merged = [...imageRows, ...videoRows].sort((a, b) => Number(a.id) - Number(b.id));
+    return (limit === undefined ? merged : merged.slice(0, limit)).map((row) => MediaFile.parse(row));
   }
 
   /**

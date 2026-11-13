@@ -45,6 +45,7 @@ libvips/Chromium isolation):
 
 ```
 read bytes once ─┬─ SHA-256(bytes)                         → sha256
+                 ├─ EXIF parse (exifr, from the bytes)     → imageMetadata (incl. orientation)
                  └─ decode once → raw RGB(A) pixels
                        ├─ SHA-256(raw pixels)              → contentHash   (semantics unchanged)
                        ├─ orient → 32×32 grey → DCT        → perceptualHash
@@ -53,19 +54,48 @@ read bytes once ─┬─ SHA-256(bytes)                         → sha256
 
 - SHA-256 moves from the main process into the worker; the main process receives it in
   `SharpResponse`. Videos keep streaming SHA-256 (never load whole videos into memory).
-- Derivatives are made with `sharp(raw, { raw: { width, height, channels } })`, which is
-  cheap compared to a decode.
+- ~~Derivatives are made with `sharp(raw, { raw: { width, height, channels } })`, which is
+  cheap compared to a decode.~~ **Measured wrong (2026-11-12):** shrinking 12 MP of raw pixels
+  to 32×32 cost ~45 ms per image and the raw→libvips copies raised peak RSS, whereas a reduced
+  decode from the same bytes (libjpeg shrink-on-load at 1/8 scale) cost ~24 ms. On 400 sample
+  images: CPU 39.4 → 31.7 s, peak RSS 1,233 → 832 MB. Disabling the libvips cache or limiting
+  malloc arenas made RSS worse. **So: read once, one full decode (only `contentHash` needs it),
+  and small derivatives (pHash now, the 224 px CLIP input later) come from reduced decodes of the
+  same in-memory bytes**, oriented by sharp's EXIF auto-rotate.
+- **Image metadata in the same pass** *(added after the baseline benchmark)*: the separate
+  metadata stage read every image a third time and its EXIF parse cost more than the pHash
+  (132–139 ms vs 26–31 ms per image). The worker now parses EXIF from the bytes it already
+  holds and reports decoded width/height/format/alpha (more reliable than EXIF dimensions).
+  The metadata stage keeps handling **videos only**; images go `pending` → analysis →
+  `hashed`, writing their `imageMetadata` row in the analysis step.
 - **Orientation:** `contentHash` keeps hashing stored pixels (unchanged semantics). pHash and
   CLIP use the EXIF-oriented image, so a physically rotated copy matches an EXIF-rotated
-  one. Orientation comes from `imageMetadata` (already extracted by `metadata-image.ts`).
+  one. Orientation comes from the worker's own EXIF parse of the same bytes.
 - **pHash in-house:** replace the `sharp-phash` dependency with our own implementation in
   `hash-phash.ts` that accepts raw pixels (32×32 greyscale → 2-D DCT → top-left 8×8 →
   median threshold → 64-bit hex). It must have golden-value tests. Because the real run
   starts from a fresh Takeout and a fresh DB (RFD-003), old pHash values need not stay
   compatible, but the algorithm must be documented in the code.
+- **pHash storage and comparison** *(added)*: `sharp-phash` stored a 64-character `"0101…"`
+  string and the detector awaited one string comparison per pair. Store **16-character hex**
+  and compare synchronously (two 32-bit halves, XOR, popcount). Detection is still all-pairs:
+  1.84 M comparisons took 1.0 s on the baseline, so about 45 min for 100k images. An index
+  (e.g. multi-index hashing on 16-bit chunks for thresholds ≤ 8) is a follow-up if needed.
+- **Failures are counted, never skipped** *(added)*: the baseline reported the sample's 25
+  truncated/empty images as "skipped" with **0 errors**. A file that cannot be read or
+  decoded is now an **error** with a category (`empty_file`, `corrupt_or_truncated`,
+  `unsupported_format:<ext>`, …) in the stage's `errorBreakdown`, and the file is marked
+  `error` with its message. SHA-256 is still stored, so byte-identical broken files are still
+  found as exact duplicates.
 - **Memory-bounded concurrency:** a 50 MP decode is about 150 MB of raw pixels. Limit
-  in-flight work by a pixel-byte budget (configurable, default about 1.5 GB), not just by
-  worker count.
+  in-flight work by a pixel-byte budget, not just by worker count. The budget is enforced
+  **inside the worker** (it holds every in-flight decode): estimated bytes = file size +
+  width × height × channels, read from the image header before decoding. Configurable;
+  default **1 GB** (the baseline worker peaked at ~1.7 GB with 4 requests in flight, too much
+  for a desktop). A single image larger than the budget still runs, alone.
+- **Packaging** *(added)*: the worker was copied into the app as one raw `.ts` file, which only
+  works while it imports nothing but `sharp`. It is now bundled to `sharp-worker.js` (exifr and
+  the pHash code inlined, `sharp` external) by an Electrobun `scripts.preBuild` step.
 
 ### B. HEIC support (deferred)
 
@@ -236,6 +266,45 @@ files including HEIC and video), report:
 - old pipeline vs. new pipeline without CLIP (expect a large drop in decode time);
 - marginal cost of enabling CLIP;
 - peak RSS of the worker.
+
+Tooling: `packages/core/src/bench/make-sample.ts` (seeded, deterministic sample: 2,005 files,
+3.2 GB; HEIC not generated, no encoder available) and `run-bench.ts` (fresh throwaway DB; wall
+time per stage, StageTimer averages, CPU time and peak RSS of main process and worker).
+
+**Baseline (before), 2026-11-12**, 20-core Arm workstation under load (load avg 20–35), two runs:
+
+| | Run 1 | Run 2 |
+|---|---|---|
+| Wall total / metadata / hashing / detecting | 221.9 / 73.1 / 147.3 / 1.0 s | 231.3 / 76.9 / 153.0 / 1.0 s |
+| Worker CPU, peak RSS | 169.6 s, 1,708 MB | 173.8 s, 1,715 MB |
+| Main CPU, peak RSS | 26.8 s, 182 MB | 27.1 s, 211 MB |
+| Avg ms/image: contentHash / pHash / SHA-256 / EXIF | 61 / 26 / 2.2 / 132 | 72 / 31 / 2.4 / 139 |
+
+Run-to-run spread ≈ 4 % wall, 2.5 % worker CPU; compare CPU time on a loaded machine.
+
+**After step 1 (single read, one full decode + reduced decode for pHash, metadata in the same
+pass), commit `ee91f3f`**, same machine and sample:
+
+| | Before | After (run 1, load 27–33) | After (run 2, load spiked to 56) |
+|---|---|---|---|
+| Wall total | 222–231 s | **97 s** | 144 s |
+| Metadata stage | 73–77 s | 2.9 s (videos only) | 2.6 s |
+| Main process CPU | 27 s | **10.6 s** | 13.1 s |
+| Worker CPU | 170–174 s | 172 s | 175 s |
+| Worker peak RSS | 1.71 GB | 2.08 GB | 1.82 GB |
+| Errors reported | 0 (25 hidden as skipped) | **25, categorized** (5 empty, 20 corrupt/truncated) | same |
+| pHash pairs (≤ 5 bits) | 418 | 419 | 419 |
+
+What the numbers say:
+- **Wall time roughly halves**, mainly because image metadata no longer re-reads every file in a
+  separate stage, and the main process does a third of the CPU work it did.
+- **Worker CPU is unchanged.** The premise in Problem §1 was only partly right: `sharp-phash`'s
+  "second decode" was already a cheap shrink-on-load decode, so there was little decode cost to
+  remove. Per image now: full decode ~51 ms, pixel SHA-256 ~12 ms, pHash (reduced decode) ~27 ms,
+  EXIF ~0.2 ms (from bytes in memory, versus 132–139 ms via exifr on the file).
+- **Peak RSS is not bounded by the 1 GB decode budget alone.** The budget limits in-flight decode
+  memory; the process adds ~0.8–1 GB of baseline and allocator retention, and peaks when several
+  50 MP images coincide. Lower `DECODE_MEMORY_BUDGET_MB` if the desktop needs a tighter ceiling.
 
 ## Alternatives Considered
 

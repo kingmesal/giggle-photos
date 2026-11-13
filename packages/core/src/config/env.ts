@@ -27,6 +27,8 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.enum(["off", "trace", "debug", "info", "warn", "error"]).default("info"),
   SCAN_BATCH_SIZE: z.coerce.number().int().positive().default(10),
   HASH_ALGORITHM: z.string().default("sha256"),
+  /** Memory the image-analysis worker may hold in concurrent decodes (RFD-002). */
+  DECODE_MEMORY_BUDGET_MB: z.coerce.number().int().positive().default(1024),
 });
 
 export const env = EnvSchema.parse(process.env);

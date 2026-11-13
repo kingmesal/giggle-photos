@@ -31,7 +31,7 @@ export const config = {
     bun: {
       entrypoint: "src/bun/index.ts",
       // Native modules must be external - they can't be bundled
-      external: ["sharp", "sharp-phash"],
+      external: ["sharp"],
     },
     views: {
       mainview: {
@@ -44,9 +44,13 @@ export const config = {
       "src/views/styles.css": "views/mainview/styles.css",
       // Desktop package.json for About (version + electrobun dependency) at runtime
       "package.json": "bun/package.json",
-      // Sharp worker runs in a child process to isolate GLib from Chromium
-      "../../packages/core/src/scan/sharp-worker.ts": "bun/sharp-worker.ts",
+      // Sharp worker runs in a child process to isolate GLib from Chromium.
+      // Bundled by scripts/build-worker.ts (preBuild) so its imports are inlined.
+      ".worker-build/sharp-worker.js": "bun/sharp-worker.js",
     },
+  },
+  scripts: {
+    preBuild: "scripts/build-worker.ts",
   },
   release: {
     baseUrl: process.env.RELEASE_BASE_URL || "https://github.com/kingmesal/giggle-photos/releases/latest/download",

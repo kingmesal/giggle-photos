@@ -4,8 +4,10 @@ import type { MediaFile } from "../zod/media-file";
 
 // Mock modules
 const mockInsertImageMetadata = mock(() => Promise.resolve({} as ImageMetadata));
+const mockExistsForMediaFile = mock(() => Promise.resolve(false));
 const mockGetImageMetadataProvider = mock(() => ({
   insertImageMetadata: mockInsertImageMetadata,
+  existsForMediaFile: mockExistsForMediaFile,
 }));
 const mockUpdateMediaFile = mock(() => Promise.resolve());
 const mockGetMediaFileProvider = mock(() => ({
@@ -67,7 +69,7 @@ const mockDbClient = {
 };
 
 // Import after mocking
-import { extractImageMetadata, processImageMetadataBatch } from "./metadata-image";
+import { extractImageMetadata } from "./metadata-image";
 
 describe("metadata-image", () => {
   beforeEach(() => {
@@ -82,8 +84,11 @@ describe("metadata-image", () => {
 
     // Setup default mock implementations
     mockInsertImageMetadata.mockImplementation(() => Promise.resolve({} as ImageMetadata));
+    mockExistsForMediaFile.mockReset();
+    mockExistsForMediaFile.mockImplementation(() => Promise.resolve(false));
     mockGetImageMetadataProvider.mockImplementation(() => ({
       insertImageMetadata: mockInsertImageMetadata,
+      existsForMediaFile: mockExistsForMediaFile,
     }));
     mockUpdateMediaFile.mockImplementation(() => Promise.resolve());
     mockGetMediaFileProvider.mockImplementation(() => ({
@@ -116,6 +121,22 @@ describe("metadata-image", () => {
       const insertedData = mockInsertImageMetadata.mock.calls[0][0] as NewImageMetadata;
       expect(insertedData.width).toBe(1920);
       expect(insertedData.height).toBe(1080);
+    });
+
+    test("zero-byte file skips exifr (handle leak) but still records metadata", async () => {
+      const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const { tmpdir } = await import("node:os");
+      const dir = mkdtempSync(join(tmpdir(), "meta-empty-"));
+      const empty = join(dir, "empty.jpg");
+      writeFileSync(empty, new Uint8Array());
+      try {
+        await extractImageMetadata(1, empty);
+        expect(mockExifrParse).not.toHaveBeenCalled();
+        expect(mockInsertImageMetadata).toHaveBeenCalledTimes(1);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     });
 
     test("falls back to ImageWidth/Height when ExifImage* missing", async () => {
@@ -387,233 +408,45 @@ describe("metadata-image", () => {
     });
   });
 
-  describe("processImageMetadataBatch", () => {
-    const createMockMediaFile = (id: number, path: string): MediaFile => ({
-      id,
-      scanFolderId: 1,
-      path,
-      filename: path.split("/").pop() || "file.jpg",
-      extension: "jpg",
-      fileType: "image",
-      size: 1024,
-      status: "pending",
-      sha256Hash: null,
-      contentHash: null,
-      perceptualHash: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+  describe("extractImageMetadata with worker results (prefetched)", () => {
+    const decoded = { width: 4032, height: 3024, format: "jpeg", hasAlpha: false };
+
+    test("does not read the file: exifr is never called", async () => {
+      await extractImageMetadata(1, "/test/image.jpg", { exif: { Orientation: 6 }, decoded });
+      expect(mockExifrParse).not.toHaveBeenCalled();
+      const inserted = mockInsertImageMetadata.mock.calls[0][0] as NewImageMetadata;
+      expect(inserted.orientation).toBe(6);
     });
 
-    test("returns empty result when no images need processing", async () => {
-      mockDbRows = [];
-
-      const result = await processImageMetadataBatch();
-
-      expect(result.processed).toBe(0);
-      expect(result.errors).toBe(0);
-      expect(result.skipped).toBe(0);
-    });
-
-    test("processes images from database", async () => {
-      mockDbRows = [createMockMediaFile(1, "/photos/a.jpg"), createMockMediaFile(2, "/photos/b.jpg")];
-
-      mockExifrParse.mockImplementation(() =>
-        Promise.resolve({
-          ExifImageWidth: 800,
-          ExifImageHeight: 600,
-        }),
-      );
-
-      const result = await processImageMetadataBatch();
-
-      expect(result.processed).toBe(2);
-      expect(result.errors).toBe(0);
-      expect(mockInsertImageMetadata).toHaveBeenCalledTimes(2);
-    });
-
-    test("handles errors gracefully and continues processing", async () => {
-      mockDbRows = [
-        createMockMediaFile(1, "/photos/good.jpg"),
-        createMockMediaFile(2, "/photos/bad.jpg"),
-        createMockMediaFile(3, "/photos/also-good.jpg"),
-      ];
-
-      // Make insert fail for the second file
-      let callCount = 0;
-      mockInsertImageMetadata.mockImplementation(() => {
-        callCount++;
-        if (callCount === 2) {
-          return Promise.reject(new Error("DB insert failed"));
-        }
-        return Promise.resolve({} as ImageMetadata);
+    test("decoded dimensions, format and alpha override EXIF guesses", async () => {
+      await extractImageMetadata(1, "/test/image.png", {
+        exif: { ExifImageWidth: 10, ExifImageHeight: 10 },
+        decoded: { width: 640, height: 480, format: "png", hasAlpha: true },
       });
-
-      const result = await processImageMetadataBatch();
-
-      expect(result.processed).toBe(2);
-      expect(result.errors).toBe(1);
+      const inserted = mockInsertImageMetadata.mock.calls[0][0] as NewImageMetadata;
+      expect([inserted.width, inserted.height, inserted.format, inserted.hasAlpha]).toEqual([640, 480, "png", true]);
     });
 
-    test("respects limit option", async () => {
-      // Create more files than the limit
-      mockDbRows = [
-        createMockMediaFile(1, "/photos/a.jpg"),
-        createMockMediaFile(2, "/photos/b.jpg"),
-        createMockMediaFile(3, "/photos/c.jpg"),
-        createMockMediaFile(4, "/photos/d.jpg"),
-        createMockMediaFile(5, "/photos/e.jpg"),
-      ];
-
-      // Override the mock to respect limit
-      const mockGetInstanceWithLimit = mock(() =>
-        Promise.resolve({
-          getImageMetadataProvider: mockGetImageMetadataProvider,
-          getMediaFileProvider: mockGetMediaFileProvider,
-          getClient: () => ({
-            getDb: () => ({
-              selectFrom: () => ({
-                leftJoin: () => ({
-                  where: () => ({
-                    where: () => ({
-                      selectAll: () => ({
-                        orderBy: () => ({
-                          limit: (n: number) => ({
-                            execute: async () => mockDbRows.slice(0, n),
-                          }),
-                          execute: async () => mockDbRows,
-                        }),
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      );
-      mockGetInstance.mockImplementation(mockGetInstanceWithLimit as typeof mockGetInstance);
-
-      const result = await processImageMetadataBatch({ limit: 2 });
-
-      expect(result.processed).toBe(2);
-      expect(result.errors).toBe(0);
-    });
-
-    test("calls progress callback with correct arguments", async () => {
-      mockDbRows = [createMockMediaFile(1, "/photos/a.jpg"), createMockMediaFile(2, "/photos/b.jpg")];
-
-      const progressCalls: Array<{ completed: number; total: number; currentFile: string }> = [];
-      const onProgress = mock((completed: number, total: number, currentFile: string) => {
-        progressCalls.push({ completed, total, currentFile });
+    test("ISO-string dates from the worker become Dates; GPS passes through", async () => {
+      await extractImageMetadata(1, "/test/image.jpg", {
+        exif: { DateTimeOriginal: "2021-07-04T12:30:00.000Z", latitude: 47.6, longitude: -122.3, GPSAltitude: 40 },
+        decoded,
       });
-
-      await processImageMetadataBatch({ onProgress });
-
-      expect(onProgress).toHaveBeenCalledTimes(2);
-      expect(progressCalls[0].total).toBe(2);
-      expect(progressCalls[1].total).toBe(2);
-      // Progress calls may be out of order due to concurrency, but both files should be reported
-      const reportedFiles = progressCalls.map((c) => c.currentFile).sort();
-      expect(reportedFiles).toContain("/photos/a.jpg");
-      expect(reportedFiles).toContain("/photos/b.jpg");
+      const inserted = mockInsertImageMetadata.mock.calls[0][0] as NewImageMetadata;
+      expect((inserted.dateTaken as Date).toISOString()).toBe("2021-07-04T12:30:00.000Z");
+      expect([inserted.gpsLatitude, inserted.gpsLongitude, inserted.gpsAltitude]).toEqual([47.6, -122.3, 40]);
     });
 
-    test("uses default concurrency", async () => {
-      // This is a structural test - we're verifying the function accepts options without concurrency
-      mockDbRows = [];
-
-      const result = await processImageMetadataBatch({});
-
-      expect(result.processed).toBe(0);
+    test("a failed decode (no decoded info, no EXIF) still records a row with fallbacks", async () => {
+      await extractImageMetadata(1, "/test/broken.jpg", { exif: null });
+      const inserted = mockInsertImageMetadata.mock.calls[0][0] as NewImageMetadata;
+      expect([inserted.width, inserted.height, inserted.format]).toEqual([1, 1, "jpeg"]);
     });
 
-    test("processes with custom concurrency", async () => {
-      mockDbRows = [
-        createMockMediaFile(1, "/photos/a.jpg"),
-        createMockMediaFile(2, "/photos/b.jpg"),
-        createMockMediaFile(3, "/photos/c.jpg"),
-      ];
-
-      const result = await processImageMetadataBatch({ concurrency: 1 });
-
-      expect(result.processed).toBe(3);
-      expect(result.errors).toBe(0);
-    });
-
-    test("inserts metadata into database for each processed image", async () => {
-      mockDbRows = [createMockMediaFile(1, "/photos/a.jpg"), createMockMediaFile(2, "/photos/b.jpg")];
-
-      await processImageMetadataBatch();
-
-      expect(mockInsertImageMetadata).toHaveBeenCalledTimes(2);
-
-      // Verify the inserted data has correct mediaFileIds
-      const firstCall = mockInsertImageMetadata.mock.calls[0][0] as NewImageMetadata;
-      const secondCall = mockInsertImageMetadata.mock.calls[1][0] as NewImageMetadata;
-      const mediaFileIds = [firstCall.mediaFileId, secondCall.mediaFileId].sort();
-      expect(mediaFileIds).toEqual([1, 2]);
-    });
-
-    test("does not call progress callback when none provided", async () => {
-      mockDbRows = [createMockMediaFile(1, "/photos/a.jpg")];
-
-      // Should not throw when onProgress is undefined
-      const result = await processImageMetadataBatch();
-
-      expect(result.processed).toBe(1);
-    });
-
-    test("logs info message when no images need processing", async () => {
-      mockDbRows = [];
-
-      const result = await processImageMetadataBatch();
-
-      expect(result.processed).toBe(0);
-      expect(result.errors).toBe(0);
-      expect(result.skipped).toBe(0);
-    });
-
-    test("tracks error count correctly when multiple files fail", async () => {
-      mockDbRows = [
-        createMockMediaFile(1, "/photos/bad1.jpg"),
-        createMockMediaFile(2, "/photos/bad2.jpg"),
-        createMockMediaFile(3, "/photos/bad3.jpg"),
-      ];
-
-      mockInsertImageMetadata.mockImplementation(() => Promise.reject(new Error("DB insert failed")));
-
-      const result = await processImageMetadataBatch();
-
-      expect(result.processed).toBe(0);
-      expect(result.errors).toBe(3);
-    });
-
-    test("updates file status to 'metadata' after successful extraction", async () => {
-      mockDbRows = [createMockMediaFile(1, "/photos/a.jpg"), createMockMediaFile(2, "/photos/b.jpg")];
-
-      await processImageMetadataBatch();
-
-      // updateMediaFile should be called once per successfully processed file
-      expect(mockUpdateMediaFile).toHaveBeenCalledTimes(2);
-
-      // Verify each call sets status to "metadata" with the correct file id
-      const updateCalls = mockUpdateMediaFile.mock.calls.map((call) => call[0] as { id: number; status: string });
-      const updateIds = updateCalls.map((c) => c.id).sort();
-      expect(updateIds).toEqual([1, 2]);
-      for (const call of updateCalls) {
-        expect(call.status).toBe("metadata");
-      }
-    });
-
-    test("does not update file status when extraction fails", async () => {
-      mockDbRows = [createMockMediaFile(1, "/photos/bad.jpg")];
-
-      mockInsertImageMetadata.mockImplementation(() => Promise.reject(new Error("DB insert failed")));
-
-      await processImageMetadataBatch();
-
-      // updateMediaFile should NOT be called for files that errored
-      expect(mockUpdateMediaFile).not.toHaveBeenCalled();
+    test("keeps an existing row on a resumed run", async () => {
+      mockExistsForMediaFile.mockImplementation(() => Promise.resolve(true));
+      await extractImageMetadata(1, "/test/image.jpg", { exif: null, decoded });
+      expect(mockInsertImageMetadata).not.toHaveBeenCalled();
     });
   });
 });

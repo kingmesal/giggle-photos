@@ -9,33 +9,18 @@
  *   shutdownSharpProcess(); // on app exit
  */
 
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { env } from "../config/env";
 import { getLogger } from "../logging/logger";
+import type { AnalysisRequest, AnalysisResponse, WorkerReady } from "./analysis-protocol";
 
 const log = getLogger("core:sharp-process");
 
-interface SharpRequest {
-  id: number;
-  filePath: string;
-  computeContentHash: boolean;
-  computePerceptualHash: boolean;
-}
-
-interface SharpResponse {
-  id: number;
-  type?: string;
-  sharp?: boolean;
-  phash?: boolean;
-  contentHash?: string | null;
-  perceptualHash?: string | null;
-  readMs?: number;
-  contentHashMs?: number;
-  perceptualHashMs?: number;
-  error?: string;
-}
+type WorkerMessage = AnalysisResponse | WorkerReady;
 
 interface PendingRequest {
-  resolve: (result: SharpResponse) => void;
+  resolve: (result: AnalysisResponse) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -52,12 +37,21 @@ let workerCapabilities: { sharp: boolean; phash: boolean } | null = null;
  * Ensure the Sharp worker child process is running.
  * Spawns it on first call, reuses on subsequent calls.
  */
+/**
+ * The packaged app ships a bundled `sharp-worker.js` next to the main bundle (see
+ * apps/desktop/scripts/build-worker.ts); source checkouts (tests, bench, dev) run the `.ts`.
+ */
+function resolveWorkerPath(): string {
+  const bundled = join(import.meta.dir, "sharp-worker.js");
+  return existsSync(bundled) ? bundled : join(import.meta.dir, "sharp-worker.ts");
+}
+
 export async function ensureSharpProcess(): Promise<{ sharp: boolean; phash: boolean }> {
   if (childProcess && workerCapabilities) {
     return workerCapabilities;
   }
 
-  const workerPath = join(import.meta.dir, "sharp-worker.ts");
+  const workerPath = resolveWorkerPath();
 
   const readyPromise = new Promise<{ sharp: boolean; phash: boolean }>((resolve) => {
     readyResolve = resolve;
@@ -66,18 +60,22 @@ export async function ensureSharpProcess(): Promise<{ sharp: boolean; phash: boo
   log.debug(`Spawning Sharp worker: ${process.execPath} ${workerPath}`);
 
   childProcess = Bun.spawn([process.execPath, "run", workerPath], {
-    ipc(message: SharpResponse) {
+    env: { ...process.env, GIGGLE_DECODE_BUDGET_BYTES: String(env.DECODE_MEMORY_BUDGET_MB * 1024 * 1024) },
+    ipc(message: WorkerMessage) {
       // Handle ready signal
-      if (message.type === "ready") {
-        const caps = { sharp: message.sharp ?? false, phash: message.phash ?? false };
+      if ("type" in message && message.type === "ready") {
+        const caps = { sharp: message.sharp, phash: message.phash };
         workerCapabilities = caps;
-        log.info(`Sharp worker ready (sharp: ${caps.sharp}, phash: ${caps.phash})`);
+        log.info(
+          `Sharp worker ready (sharp: ${caps.sharp}, phash: ${caps.phash}, decode budget: ${Math.round(message.decodeBudgetBytes / 1048576)} MB)`,
+        );
         readyResolve?.(caps);
         readyResolve = null;
         return;
       }
 
-      // Handle hash result
+      // Handle analysis result
+      if (!("id" in message)) return;
       const pending = pendingRequests.get(message.id);
       if (pending) {
         clearTimeout(pending.timer);
@@ -108,31 +106,15 @@ export async function ensureSharpProcess(): Promise<{ sharp: boolean; phash: boo
 }
 
 /**
- * Request content hash and/or perceptual hash from the Sharp worker.
- *
- * The worker reads the file, decodes it with Sharp, and returns results.
- * Returns `null` for unsupported formats, `undefined` if the algorithm wasn't requested.
+ * Analyse one image in the worker: a single read and decode yields sha256, EXIF fields, decoded
+ * info, contentHash and perceptualHash. Read/decode failures come back in `failure` (never thrown);
+ * only a worker crash or timeout rejects.
  */
-export async function requestSharpHashes(
-  filePath: string,
-  computeContentHash: boolean,
-  computePerceptualHash: boolean,
-): Promise<{
-  contentHash: string | null | undefined;
-  perceptualHash: string | null | undefined;
-  readMs?: number;
-  contentHashMs?: number;
-  perceptualHashMs?: number;
-}> {
+export async function requestImageAnalysis(filePath: string): Promise<AnalysisResponse> {
   await ensureSharpProcess();
 
   const id = nextRequestId++;
-  const request: SharpRequest = {
-    id,
-    filePath,
-    computeContentHash,
-    computePerceptualHash,
-  };
+  const request: AnalysisRequest = { id, filePath };
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -140,27 +122,9 @@ export async function requestSharpHashes(
       reject(new Error(`Sharp worker timeout (${WORKER_TIMEOUT_MS}ms) for ${filePath}`));
     }, WORKER_TIMEOUT_MS);
 
-    pendingRequests.set(id, {
-      resolve: (response) => {
-        if (response.error) {
-          log.warn(`Sharp worker error for ${filePath}: ${response.error}`);
-        }
-        resolve({
-          contentHash: response.contentHash,
-          perceptualHash: response.perceptualHash,
-          readMs: response.readMs,
-          contentHashMs: response.contentHashMs,
-          perceptualHashMs: response.perceptualHashMs,
-        });
-      },
-      reject,
-      timer,
-    });
-
+    pendingRequests.set(id, { resolve, reject, timer });
     childProcess?.send(request);
-    log.debug(
-      `Sent request #${id} to Sharp worker: ${filePath} (content: ${computeContentHash}, phash: ${computePerceptualHash})`,
-    );
+    log.debug(`Sent analysis request #${id} to Sharp worker: ${filePath}`);
   });
 }
 
@@ -193,7 +157,7 @@ export function isWorkerSharpAvailable(): boolean {
 }
 
 /**
- * Check if the Sharp worker has the sharp-phash module available.
+ * Check if the Sharp worker can compute perceptual hashes (sharp loaded).
  */
 export function isWorkerPhashAvailable(): boolean {
   return workerCapabilities?.phash ?? false;

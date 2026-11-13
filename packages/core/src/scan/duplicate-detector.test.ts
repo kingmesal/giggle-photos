@@ -25,11 +25,16 @@ let mockPhashMatches: MockPhashMatch[] = [];
 let nextPhashMatchId = 1;
 
 // Mock hamming distance function
-let mockHammingDistance: (hash1: string, hash2: string) => Promise<number>;
+let mockHammingDistance: (hash1: string, hash2: string) => number;
 
-// Mock the hash-phash module
+// Mock the hash-phash module. phashHalves passes the fake hash string through as an opaque
+// token so tests can keep using readable fake hashes; "malformed" hashes throw like the real one.
 mock.module("./hash-phash", () => ({
-  hammingDistance: (hash1: string, hash2: string) => mockHammingDistance(hash1, hash2),
+  phashHalves: (hash: string) => {
+    if (hash.startsWith("malformed")) throw new Error(`Not a 16-character hex pHash: ${hash}`);
+    return hash;
+  },
+  hammingDistanceHalves: (a: string, b: string) => mockHammingDistance(a, b),
 }));
 
 const mockPhashMatchProvider = {
@@ -142,7 +147,7 @@ describe("duplicate-detector", () => {
     mockPhashGroupProvider.recomputeGroups.mockClear();
 
     // Default hamming distance: returns actual distance based on hash difference
-    mockHammingDistance = async (hash1: string, hash2: string) => {
+    mockHammingDistance = (hash1: string, hash2: string) => {
       if (hash1 === hash2) return 0;
       // Simple mock: count character differences
       let diff = 0;
@@ -209,7 +214,7 @@ describe("duplicate-detector", () => {
       ];
 
       // Make phash distance large so no phash matches
-      mockHammingDistance = async () => 100;
+      mockHammingDistance = () => 100;
 
       const result = await detectDuplicates();
 
@@ -237,7 +242,7 @@ describe("duplicate-detector", () => {
         },
       ];
 
-      mockHammingDistance = async () => 3;
+      mockHammingDistance = () => 3;
 
       const result = await detectDuplicates({ phashThreshold: 5 });
 
@@ -268,7 +273,7 @@ describe("duplicate-detector", () => {
       ];
 
       // Distance of 8 - should be rejected with default threshold of 5
-      mockHammingDistance = async () => 8;
+      mockHammingDistance = () => 8;
 
       const resultDefault = await detectDuplicates();
       expect(resultDefault.phashPairsComputed).toBe(0);
@@ -304,7 +309,7 @@ describe("duplicate-detector", () => {
       // Pre-populate existing pair
       mockPhashMatches = [{ id: 1, mediaFileId1: 1, mediaFileId2: 2, distance: 3, createdAt: Date.now() }];
 
-      mockHammingDistance = async () => 3;
+      mockHammingDistance = () => 3;
 
       const result = await detectDuplicates({ phashThreshold: 5 });
 
@@ -312,18 +317,26 @@ describe("duplicate-detector", () => {
       expect(result.phashPairsComputed).toBe(0);
     });
 
-    test("handles hamming distance returning -1 (module not available)", async () => {
+    test("skips images whose perceptual hash is malformed", async () => {
       mockMediaFiles = [
         { id: 1, sha256Hash: "sha1", contentHash: "c1", perceptualHash: "phash1", fileType: "image", scanFolderId: 1 },
-        { id: 2, sha256Hash: "sha2", contentHash: "c2", perceptualHash: "phash2", fileType: "image", scanFolderId: 1 },
+        {
+          id: 2,
+          sha256Hash: "sha2",
+          contentHash: "c2",
+          perceptualHash: "malformed2",
+          fileType: "image",
+          scanFolderId: 1,
+        },
+        { id: 3, sha256Hash: "sha3", contentHash: "c3", perceptualHash: "phash3", fileType: "image", scanFolderId: 1 },
       ];
-
-      // Return -1 to indicate module not available
-      mockHammingDistance = async () => -1;
+      mockHammingDistance = () => 0;
 
       const result = await detectDuplicates();
 
-      expect(result.phashPairsComputed).toBe(0);
+      // Only 1 and 3 are compared; the malformed hash neither crashes nor pairs.
+      expect(result.totalComparisons).toBe(1);
+      expect(result.phashPairsComputed).toBe(1);
     });
 
     test("videos are excluded from phash comparison", async () => {
@@ -332,7 +345,7 @@ describe("duplicate-detector", () => {
         { id: 2, sha256Hash: "same", contentHash: "c2", perceptualHash: "phash2", fileType: "video", scanFolderId: 1 },
       ];
 
-      mockHammingDistance = async () => 1;
+      mockHammingDistance = () => 1;
 
       const result = await detectDuplicates();
 
@@ -370,7 +383,7 @@ describe("duplicate-detector", () => {
       ];
 
       // A↔B = 2, A↔C = 2, B↔C = 100 (not close)
-      mockHammingDistance = async (hash1: string, hash2: string) => {
+      mockHammingDistance = (hash1: string, hash2: string) => {
         if ((hash1 === "aaaa" && hash2 === "aabb") || (hash1 === "aabb" && hash2 === "aaaa")) return 2;
         if ((hash1 === "aaaa" && hash2 === "aacc") || (hash1 === "aacc" && hash2 === "aaaa")) return 2;
         return 100;
@@ -392,7 +405,7 @@ describe("duplicate-detector", () => {
         { id: 2, sha256Hash: "sha2", contentHash: "c2", perceptualHash: "p2", fileType: "image", scanFolderId: 1 },
       ];
 
-      mockHammingDistance = async () => 100; // No matches
+      mockHammingDistance = () => 100; // No matches
 
       const progressCalls: { stage: string; current: number; total: number }[] = [];
       const onProgress = (stage: string, current: number, total: number) => {
@@ -447,7 +460,7 @@ describe("duplicate-detector", () => {
       ];
 
       // A↔B distance 2, B↔C distance 3, A↔C distance > threshold
-      mockHammingDistance = async (hash1: string, hash2: string) => {
+      mockHammingDistance = (hash1: string, hash2: string) => {
         if ((hash1 === "aaaa" && hash2 === "aabb") || (hash1 === "aabb" && hash2 === "aaaa")) return 2;
         if ((hash1 === "aabb" && hash2 === "bbbb") || (hash1 === "bbbb" && hash2 === "aabb")) return 3;
         return 100; // A↔C too far

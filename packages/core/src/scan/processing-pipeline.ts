@@ -7,7 +7,6 @@ const log = getLogger("core:pipeline");
 import { detectDuplicates } from "./duplicate-detector";
 import { scanFolder } from "./file-scanner";
 import { processHashBatch } from "./hash-unified";
-import { processImageMetadataBatch } from "./metadata-image";
 import { processVideoMetadataBatch } from "./metadata-video";
 
 /**
@@ -348,55 +347,38 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
     checkCancelled();
 
     const metadataTimer = new StageTimer();
-    let imageTotal = 0;
     let videoTotal = 0;
-    let imageCompleted = 0;
     let videoCompleted = 0;
 
     const updateMetadataProgress = () => {
-      const combinedTotal = imageTotal + videoTotal;
-      const combinedCompleted = imageCompleted + videoCompleted;
-      const weightedProgress = combinedTotal > 0 ? Math.round((combinedCompleted / combinedTotal) * 100) : 100;
-
-      // Compute ETA from timer averages
-      const avgImg = metadataTimer.getAverage("imageMetadata") ?? 0;
+      const progressPct = videoTotal > 0 ? Math.round((videoCompleted / videoTotal) * 100) : 100;
       const avgVid = metadataTimer.getAverage("videoMetadata") ?? 0;
-      const remaining = imageTotal - imageCompleted + (videoTotal - videoCompleted);
-      const avgPerFile = combinedTotal > 0 ? (avgImg * imageTotal + avgVid * videoTotal) / combinedTotal : 0;
+      const remaining = videoTotal - videoCompleted;
 
       updateProgress({
-        stageProgress: weightedProgress,
-        filesProcessed: alreadyHaveMetadata + combinedCompleted,
-        totalFiles: alreadyHaveMetadata + combinedTotal,
-        liveTimingMs: { imageMetadata: avgImg, videoMetadata: avgVid },
-        liveImages: imageCompleted,
+        stageProgress: progressPct,
+        filesProcessed: alreadyHaveMetadata + videoCompleted,
+        totalFiles: alreadyHaveMetadata + videoTotal,
+        liveTimingMs: { videoMetadata: avgVid },
+        liveImages: 0,
         liveVideos: videoCompleted,
-        etaMs: remaining > 0 ? remaining * avgPerFile : undefined,
+        etaMs: remaining > 0 ? remaining * avgVid : undefined,
       });
     };
 
-    const [imageResult, videoResult] = await Promise.all([
-      processImageMetadataBatch({
-        timer: metadataTimer,
-        onProgress: (completed, total) => {
-          imageCompleted = completed;
-          imageTotal = total;
-          updateMetadataProgress();
-        },
-      }),
-      processVideoMetadataBatch({
-        timer: metadataTimer,
-        onProgress: (completed, total) => {
-          videoCompleted = completed;
-          videoTotal = total;
-          updateMetadataProgress();
-        },
-      }),
-    ]);
+    // Images get their metadata in the analysis stage (single pass, RFD-002); videos still here.
+    const videoResult = await processVideoMetadataBatch({
+      timer: metadataTimer,
+      onProgress: (completed, total) => {
+        videoCompleted = completed;
+        videoTotal = total;
+        updateMetadataProgress();
+      },
+    });
 
     // Merge error breakdowns
     const metadataErrorBreakdown: Record<string, number> = {};
-    for (const bd of [imageResult.errorBreakdown, videoResult.errorBreakdown]) {
+    for (const bd of [videoResult.errorBreakdown]) {
       if (bd) {
         for (const [k, v] of Object.entries(bd)) {
           metadataErrorBreakdown[k] = (metadataErrorBreakdown[k] ?? 0) + v;
@@ -411,12 +393,12 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
       metadataTimingMs[name] = stats.avgMs;
     }
 
-    progress.errors += imageResult.errors + videoResult.errors;
+    progress.errors += videoResult.errors;
     stageStats.metadata = {
-      processed: imageResult.processed + videoResult.processed,
-      errors: imageResult.errors + videoResult.errors,
-      skipped: imageResult.skipped + videoResult.skipped,
-      images: imageCompleted,
+      processed: videoResult.processed,
+      errors: videoResult.errors,
+      skipped: videoResult.skipped,
+      images: 0,
       videos: videoCompleted,
       errorBreakdown: Object.keys(metadataErrorBreakdown).length > 0 ? metadataErrorBreakdown : undefined,
       timingMs: Object.keys(metadataTimingMs).length > 0 ? metadataTimingMs : undefined,
@@ -457,18 +439,27 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
       onProgress: (completed, total) => {
         const stageProgress = total > 0 ? Math.round((completed / total) * 100) : 100;
 
-        // Compute ETA from sum of algorithm averages
-        const avgSha = hashTimer.getAverage("sha256") ?? 0;
-        const avgContent = hashTimer.getAverage("contentHash") ?? 0;
-        const avgPhash = hashTimer.getAverage("perceptualHash") ?? 0;
-        const totalAvg = avgSha + avgContent + avgPhash;
+        // ETA from the sum of per-step averages of the single pass (read → hashes)
+        const avg = (name: string) => hashTimer.getAverage(name) ?? 0;
+        const avgSha = avg("sha256");
+        const avgContent = avg("contentHash");
+        const avgPhash = avg("perceptualHash");
+        const avgDecode = avg("decode");
+        const avgExif = avg("exif");
+        const totalAvg = avg("read") + avgSha + avgExif + avgDecode + avgContent + avgPhash;
         const remaining = total - completed;
 
         updateProgress({
           stageProgress,
           filesProcessed: alreadyHashed + completed,
           totalFiles: alreadyHashed + total,
-          liveTimingMs: { sha256: avgSha, contentHash: avgContent, perceptualHash: avgPhash },
+          liveTimingMs: {
+            sha256: avgSha,
+            exif: avgExif,
+            decode: avgDecode,
+            contentHash: avgContent,
+            perceptualHash: avgPhash,
+          },
           etaMs: remaining > 0 ? remaining * totalAvg : undefined,
         });
       },

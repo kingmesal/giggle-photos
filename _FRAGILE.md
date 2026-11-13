@@ -47,18 +47,33 @@ Review before modifying any code listed here.
 
 ## Moderate (Yellow)
 
-### Hashing — `packages/core/src/scan/hasher.ts`, `grouping.ts`
+### Hashing / image analysis — `packages/core/src/scan/`
 
-**Risk**: Wrong duplicates, performance issues, memory exhaustion
+Files: `image-analysis.ts` (read once → SHA-256, EXIF, full decode → contentHash, reduced decode →
+pHash), `hash-phash.ts` (in-house DCT pHash + Hamming distance), `byte-budget.ts`,
+`sharp-worker.ts` / `sharp-process.ts` (worker process + IPC, `analysis-protocol.ts`),
+`hash-unified.ts` + `store-analysis.ts` (analysis stage, persistence, error counts),
+`duplicate-detector.ts` (pairwise pHash distances).
+
+**Risk**: Wrong duplicates, silently missed files, memory exhaustion, Chromium crashes
 
 **Before touching**:
-- Don't change hash algorithms without migration plan
-- Test: empty files, corrupted files, very large files
-- Verify batch processing doesn't exhaust memory
+- **Hash definitions are data contracts.** `contentHash` = SHA-256 of the *stored* (un-oriented)
+  decoded pixels; `perceptualHash` = the documented algorithm in `hash-phash.ts` (16 hex chars)
+  on the EXIF-oriented image. Changing either changes every stored value: needs a migration or
+  recompute plan, and the golden tests in `hash-phash.test.ts` must be updated deliberately.
+- **sharp/libvips never runs in the main process** (GLib races with Chromium). All decoding goes
+  through the worker; the worker is bundled by `apps/desktop/scripts/build-worker.ts`.
+- **Failures are counted, never skipped**: every read/decode failure becomes a `HashError`
+  category in `errorBreakdown` and marks the file `error` (`store-analysis.ts`).
+- **Memory**: concurrent decodes are bounded inside the worker by `DECODE_MEMORY_BUDGET_MB`
+  (`byte-budget.ts`). Videos are hashed by streaming, never loaded whole.
+- Test: empty, truncated, unsupported (e.g. HEIC), 16-bit, alpha, EXIF-rotated, very large files.
+- Benchmark before/after with `packages/core/src/bench/` (see RFD-002).
 
 ---
 
-### RPC — `apps/desktop/src/rpc.ts`
+### RPC — `apps/desktop/src/bun/rpc.ts`
 
 **Risk**: Runtime type errors, inconsistent UI state
 
@@ -69,7 +84,7 @@ Review before modifying any code listed here.
 
 ---
 
-### Scanner — `packages/core/src/scan/scanner.ts`
+### Scanner — `packages/core/src/scan/file-scanner.ts`
 
 **Risk**: Infinite loops, memory exhaustion, partial failures
 

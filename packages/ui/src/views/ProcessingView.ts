@@ -7,6 +7,7 @@ import { createSignal, signal } from "sigment";
 import { getLogger } from "../services/logger-service";
 import { getSystemHealth as getSystemHealthService, type SystemHealth } from "../services/system-health-service";
 import { navigateTo } from "../state/navigation";
+import { errorCategoryLabel } from "./error-labels";
 
 const log = getLogger("ui:processing-view");
 
@@ -673,7 +674,7 @@ function PipelineStepComponent(
           ? div(
               { class: "text-sm text-accent-amber mt-1" },
               ...Object.entries(stats.errorBreakdown).map(([category, count]) =>
-                span({ class: "mr-3" }, `${category.replace(/_/g, " ")}: ${count}`),
+                span({ class: "mr-3" }, `${errorCategoryLabel(category)}: ${count}`),
               ),
             )
           : null;
