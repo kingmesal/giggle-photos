@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "bun:test";
 import sharp from "sharp";
-import { ensureSharpProcess, requestImageAnalysis, requestImageEmbedding, shutdownSharpProcess } from "./sharp-process";
+import {
+  ensureSharpProcess,
+  requestImageAnalysis,
+  requestImageEmbedding,
+  requestVideoFrameEmbeddings,
+  shutdownSharpProcess,
+} from "./sharp-process";
 
 const dir = mkdtempSync(join(tmpdir(), "sharp-process-"));
 const image = join(dir, "a.jpg");
@@ -48,5 +54,42 @@ describe("analysis worker (real child process)", () => {
       0,
     );
     expect(dot).toBeCloseTo(1, 4);
+  });
+
+  const ffmpeg = Bun.which("ffmpeg");
+  test.skipIf(!modelPath || !ffmpeg)(
+    "with the model: a video's 5 frames come back embedded",
+    async () => {
+      const video = join(dir, "v.mp4");
+      const make = Bun.spawn(
+        [
+          ffmpeg as string,
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc=duration=3:size=320x240:rate=10",
+          "-pix_fmt",
+          "yuv420p",
+          video,
+        ],
+        { stdout: "ignore", stderr: "ignore" },
+      );
+      expect(await make.exited).toBe(0);
+      await ensureSharpProcess({ modelPath: modelPath as string, provider: "cpu", threads: 2 });
+      const r = await requestVideoFrameEmbeddings(video, 3);
+      expect(r.clipError).toBeUndefined();
+      expect(r.clipFrames).toHaveLength(5);
+      expect(r.clipFrames?.[0]).toHaveLength(512);
+    },
+    60_000,
+  );
+
+  test("without a model, video frames are refused with a reason", async () => {
+    shutdownSharpProcess(); // a running worker with the model would be reused
+    await ensureSharpProcess(null);
+    const r = await requestVideoFrameEmbeddings(join(dir, "v.mp4"), 3);
+    expect(r.clipError).toBe("CLIP model not loaded in worker");
   });
 });

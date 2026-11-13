@@ -1,7 +1,8 @@
 /**
- * CLIP part of the similarity stage (RFD-002 §C–D): backfill embeddings for analysed images that
- * have none (e.g. analysed before the model finished downloading), then all-pairs matching into
- * clipMatches. CLIP pairs are review-only: never preselected for deletion (§G).
+ * CLIP part of the similarity stage (RFD-002 §C–E): backfill embeddings for analysed images that
+ * have none (e.g. analysed before the model finished downloading) and frame embeddings for videos,
+ * then all-pairs image matching plus video matching into clipMatches. CLIP pairs are review-only:
+ * never preselected for deletion (§G).
  */
 import PQueue from "p-queue";
 import { getAppSettings } from "../config/user-config";
@@ -12,10 +13,11 @@ import { clipThresholds } from "./clip-settings";
 import { findClipPairs } from "./match";
 import { CLIP_MODEL } from "./model-manifest";
 import { getClipModelStatus, workerClipOptions } from "./model-service";
+import { embedVideoFrames, findFfmpeg, matchVideos, type VideoStageStats, videosToEmbed } from "./video-stage";
 
 const log = getLogger("core:clip-stage");
 
-export interface ClipStageResult {
+export interface ClipStageResult extends VideoStageStats {
   /** Why CLIP did not run, or null when it ran. */
   skipped: null | "disabled" | "model_not_ready" | "model_load_failed";
   /** Model download state or load error, when skipped for the model. */
@@ -46,6 +48,10 @@ export async function runClipStage(options: ClipStageOptions = {}): Promise<Clip
     pairsInReview: 0,
     pairsStrong: 0,
     thresholds,
+    videoSkipped: null,
+    videosEmbedded: 0,
+    videoEmbedErrors: 0,
+    videoPairs: 0,
   };
   if (!settings.clipEnabled) return { ...result, skipped: "disabled" };
   const workerOptions = workerClipOptions();
@@ -53,7 +59,10 @@ export async function runClipStage(options: ClipStageOptions = {}): Promise<Clip
 
   const clip = (await DatabaseProvider.getInstance()).getClipProvider();
   const missing = await clip.getImagesMissingEmbedding(CLIP_MODEL.id);
-  if (missing.length > 0) {
+  const ffmpeg = findFfmpeg();
+  if (!ffmpeg) result.videoSkipped = "no_ffmpeg";
+  const videos = await videosToEmbed(clip, ffmpeg);
+  if (missing.length > 0 || videos.length > 0) {
     const caps = await ensureSharpProcess(workerOptions);
     if (!caps.clip || "error" in caps.clip) {
       shutdownSharpProcess();
@@ -87,6 +96,10 @@ export async function runClipStage(options: ClipStageOptions = {}): Promise<Clip
       });
     }
     await queue.onIdle();
+    if (videos.length > 0) {
+      log.info(`Embedding frames of ${videos.length} videos`);
+      await embedVideoFrames(clip, videos, result, options.onProgress);
+    }
     shutdownSharpProcess();
   }
 
@@ -99,6 +112,9 @@ export async function runClipStage(options: ClipStageOptions = {}): Promise<Clip
     threads: settings.clipThreads,
     onProgress: (done, total) => options.onProgress?.("Comparing images (CLIP)", done, total),
   });
+  const videoPairs = await matchVideos(clip, thresholds.store);
+  result.videoPairs = videoPairs.length;
+  pairs.push(...videoPairs);
   await clip.replaceMatches(CLIP_MODEL.id, pairs);
   result.pairsStored = pairs.length;
   result.pairsInReview = pairs.filter((p) => p.distance <= thresholds.review).length;

@@ -52,13 +52,19 @@ export type AnalysisTimer =
   | "contentHash"
   | "perceptualHash"
   | "clipPreprocess"
-  | "clipInference";
+  | "clipInference"
+  | "videoFrames";
 
 export interface AnalysisRequest {
   id: number;
   filePath: string;
-  /** "analyze" (default): full single pass. "embed": CLIP embedding only (backfill). */
-  mode?: "analyze" | "embed";
+  /**
+   * "analyze" (default): full single pass. "embed": CLIP embedding only (backfill).
+   * "embed_frames": CLIP embeddings of a video's 5 frames (RFD-002 §E); needs durationSec.
+   */
+  mode?: "analyze" | "embed" | "embed_frames";
+  /** Video duration in seconds (embed_frames). */
+  durationSec?: number;
 }
 
 export interface AnalysisResult {
@@ -73,6 +79,8 @@ export interface AnalysisResult {
   failure?: AnalysisFailure;
   /** L2-normalised CLIP embedding, when the worker has the model loaded. */
   clipEmbedding?: number[];
+  /** Video frame embeddings (embed_frames), one per frame position, each L2-normalised. */
+  clipFrames?: number[][];
   /** Why embedding failed for this file (the rest of the analysis still counts). */
   clipError?: string;
 }

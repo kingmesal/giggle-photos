@@ -177,6 +177,21 @@ export async function requestImageEmbedding(filePath: string): Promise<AnalysisR
   });
 }
 
+/** CLIP embeddings of a video's 5 frames (RFD-002 §E). Frame extraction can take a while. */
+export async function requestVideoFrameEmbeddings(filePath: string, durationSec: number): Promise<AnalysisResponse> {
+  if (!childProcess) throw new Error("Worker not running");
+  const id = nextRequestId++;
+  const request: AnalysisRequest = { id, filePath, mode: "embed_frames", durationSec };
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pendingRequests.delete(id);
+      reject(new Error(`Sharp worker timeout (${WORKER_TIMEOUT_MS * 3}ms) for ${filePath}`));
+    }, WORKER_TIMEOUT_MS * 3);
+    pendingRequests.set(id, { resolve, reject, timer });
+    childProcess?.send(request);
+  });
+}
+
 /**
  * Shut down the Sharp worker process.
  * Call this on application exit.

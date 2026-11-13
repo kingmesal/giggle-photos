@@ -56,6 +56,59 @@ export class ClipProvider {
     return rows.map((r) => ({ id: Number(r.id), path: r.path }));
   }
 
+  /** Videos with a known duration and no frame embeddings for `modelId` (RFD-002 §E). */
+  async getVideosMissingFrames(modelId: string): Promise<{ id: number; path: string; durationSec: number }[]> {
+    const rows = await this.db
+      .selectFrom("mediaFiles as m")
+      .innerJoin("videoMetadata as v", "v.mediaFileId", "m.id")
+      .select(["m.id", "m.path", "v.duration"])
+      .where("m.fileType", "=", "video")
+      .where("v.duration", ">", 0)
+      .where(({ not, exists, selectFrom }) =>
+        not(
+          exists(
+            selectFrom("clipEmbeddings as e")
+              .select("e.id")
+              .whereRef("e.mediaFileId", "=", "m.id")
+              .where("e.modelId", "=", modelId),
+          ),
+        ),
+      )
+      .orderBy("m.id")
+      .execute();
+    return rows.map((r) => ({ id: Number(r.id), path: r.path, durationSec: Number(r.duration) }));
+  }
+
+  /** Every video's frame embeddings (frames in position order) with its duration. */
+  async loadVideoFrames(
+    modelId: string,
+    dimensions: number,
+  ): Promise<{ id: number; durationSec: number; frames: Float32Array[] }[]> {
+    const rows = await this.db
+      .selectFrom("clipEmbeddings as e")
+      .innerJoin("mediaFiles as m", "m.id", "e.mediaFileId")
+      .innerJoin("videoMetadata as v", "v.mediaFileId", "m.id")
+      .select(["e.mediaFileId", "e.frameIndex", "e.embedding", "v.duration"])
+      .where("e.modelId", "=", modelId)
+      .where("m.fileType", "=", "video")
+      .orderBy("e.mediaFileId")
+      .orderBy("e.frameIndex")
+      .execute();
+    const videos = new Map<number, { id: number; durationSec: number; frames: Float32Array[] }>();
+    for (const row of rows) {
+      const id = Number(row.mediaFileId);
+      const v = blobToEmbedding(row.embedding);
+      if (v.length !== dimensions) throw new Error(`Frame embedding for file ${id} has ${v.length} values`);
+      let video = videos.get(id);
+      if (!video) {
+        video = { id, durationSec: Number(row.duration), frames: [] };
+        videos.set(id, video);
+      }
+      video.frames.push(v);
+    }
+    return [...videos.values()];
+  }
+
   async countEmbeddings(modelId: string): Promise<number> {
     const row = await this.db
       .selectFrom("clipEmbeddings")
@@ -65,14 +118,16 @@ export class ClipProvider {
     return Number(row?.n ?? 0);
   }
 
-  /** All frame-0 embeddings for a model as one row-major matrix (ids ascending). */
+  /** All image embeddings for a model as one row-major matrix (ids ascending). Videos excluded. */
   async loadEmbeddings(modelId: string, dimensions: number): Promise<{ ids: number[]; vectors: Float32Array }> {
     const rows = await this.db
       .selectFrom("clipEmbeddings")
-      .select(["mediaFileId", "embedding"])
-      .where("modelId", "=", modelId)
-      .where("frameIndex", "=", 0)
-      .orderBy("mediaFileId")
+      .innerJoin("mediaFiles", "mediaFiles.id", "clipEmbeddings.mediaFileId")
+      .select(["clipEmbeddings.mediaFileId", "clipEmbeddings.embedding"])
+      .where("clipEmbeddings.modelId", "=", modelId)
+      .where("clipEmbeddings.frameIndex", "=", 0)
+      .where("mediaFiles.fileType", "=", "image")
+      .orderBy("clipEmbeddings.mediaFileId")
       .execute();
     const vectors = new Float32Array(rows.length * dimensions);
     const ids: number[] = [];

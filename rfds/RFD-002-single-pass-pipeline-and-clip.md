@@ -1,8 +1,8 @@
 # RFD-002: Single-Pass Analysis Pipeline + CLIP Similarity Method
 
 ## Status
-Draft — 2026-11-12. Step 1, CLIP embeddings + matching, and CLIP review groups implemented
-2026-11-12; video frames pending.
+Implemented 2026-11-12: step 1, CLIP embeddings + matching, CLIP review groups, and video frames.
+Thresholds still to calibrate on the real library.
 
 ## Problem
 
@@ -329,8 +329,17 @@ What the numbers say:
   `fileDecisions` to widen its CHECK), `clip:{lowest id}` connected groups of pairs at or under the
   review cutoff, shown in a "Visually Similar" tab after the pHash tabs. Pairs already grouped by
   SHA-256, content hash or pHash are left out so CLIP only adds what the earlier methods missed.
-  Nothing is preselected. Video frames (§E) remain step 4. Distributed builds still
-  need native modules (sharp, onnxruntime-node) shipped next to the bundle (see RFD-001 findings).
+  Nothing is preselected.
+- **Video frames (2026-11-12, §E):** the analysis worker runs ffmpeg once per frame (10/30/50/70/90%),
+  writing a 448 px-wide PNG to stdout, which then goes through the same sharp preprocessing as photos.
+  This deviates from "raw RGB" so photos and frames share one code path; ffmpeg applies the rotation
+  tag. Frames are stored as `frameIndex` 0–4, and image matching now loads image embeddings only.
+  Video pairs: durations within max(1 s, 1%), distance = the larger of the two directed medians of
+  per-frame best-match distances. They go into `clipMatches` and use the **same bands** as photos
+  (no separate video threshold): a frame of a re-encoded video is just a recompressed picture.
+  Real model, ffmpeg 6.1: a half-size, 150 kbit/s re-encode scored 0.018 and an unrelated video
+  0.166. Without ffmpeg, videos are skipped and the processing screen says so.
+- Distributed builds ship sharp and onnxruntime-node via the `postBuild` hook (RFD-001).
 
 ## Alternatives Considered
 

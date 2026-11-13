@@ -94,6 +94,9 @@ pHash), `hash-phash.ts` (in-house DCT pHash + Hamming distance), `byte-budget.ts
   `id` (embeddings are keyed by it) and threshold re-calibration.
 - Embeddings are L2-normalised; `match.ts` relies on dot product = cosine similarity, and on TopK
   output being sorted. CLIP pairs are review-only, never preselected for deletion.
+- Video frames are `frameIndex` 0–4 of a video's embeddings; `loadEmbeddings` must stay
+  images-only, or video frames would be matched as photos. Run `video-frames.model.test.ts` with
+  the real model after changing frame extraction or `video-match.ts`.
 - Review groups (`review/clip-groups.ts`) skip pairs already grouped by SHA-256, content hash or
   pHash. The deletion planner treats a `clip:` group as only its decided files, which keeps
   "never the last copy" stricter, not looser.

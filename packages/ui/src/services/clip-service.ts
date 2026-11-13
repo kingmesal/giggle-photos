@@ -33,6 +33,11 @@ export interface ClipStageStats {
   pairsInReview: number;
   pairsStrong: number;
   thresholds: { strong: number; review: number; store: number };
+  /** Video frames (RFD-002 §E); absent in stats from older runs. */
+  videoSkipped?: null | "no_ffmpeg";
+  videosEmbedded?: number;
+  videoEmbedErrors?: number;
+  videoPairs?: number;
 }
 
 export interface ClipSetupState {

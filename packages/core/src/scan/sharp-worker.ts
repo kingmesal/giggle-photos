@@ -22,6 +22,7 @@ import type SharpType from "sharp";
 import { CLIP_MODEL } from "../clip/model-manifest";
 import { clipInputFromBytes } from "../clip/preprocess";
 import { createClipSession, type ExecutionProvider, embedImage } from "../clip/session";
+import { embedVideoFrames } from "../clip/video-frames";
 import type { AnalysisRequest, AnalysisResponse, WorkerReady } from "./analysis-protocol";
 import { ByteBudget } from "./byte-budget";
 import { analyzeImageFile, type Embedder, embedImageFile } from "./image-analysis";
@@ -75,6 +76,19 @@ process.on("message", async (msg: AnalysisRequest) => {
       timings: {},
       failure: { category: "worker_crash", message: "Sharp module not available in worker" },
     };
+  } else if (msg.mode === "embed_frames") {
+    const embed = embedder;
+    response = embed
+      ? {
+          id: msg.id,
+          ...(await embedVideoFrames(
+            msg.filePath,
+            msg.durationSec ?? 0,
+            async (bytes) => Array.from((await embed(bytes)).vector),
+            process.env.GIGGLE_FFMPEG_PATH || "ffmpeg",
+          )),
+        }
+      : { id: msg.id, timings: {}, clipError: "CLIP model not loaded in worker" };
   } else if (msg.mode === "embed") {
     response = embedder
       ? { id: msg.id, ...(await embedImageFile(msg.filePath, embedder)) }
