@@ -8,6 +8,7 @@ import type { ReviewSummary } from "@giggle-photos/core/review/review-queries";
 import {
   getLogger,
   initAppInfoService,
+  initCaptureDatesService,
   initClipService,
   initDatabaseService,
   initFoldersService,
@@ -128,6 +129,15 @@ document.addEventListener("DOMContentLoaded", () => {
     initTakeoutService({
       getTakeoutReport: () => takeoutRequests.getTakeoutReport({}),
       compareImmichGoReport: (report) => takeoutRequests.compareImmichGoReport({ report }),
+    });
+  }
+
+  const dateRequests = electrobun.rpc?.request;
+  if (dateRequests?.getCaptureDateReport && dateRequests.startCaptureDates && dateRequests.getCaptureDateJob) {
+    initCaptureDatesService({
+      getCaptureDateReport: () => dateRequests.getCaptureDateReport({}),
+      startCaptureDates: () => dateRequests.startCaptureDates({}),
+      getCaptureDateJob: () => dateRequests.getCaptureDateJob({}),
     });
   }
 

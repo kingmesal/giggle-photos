@@ -55,6 +55,9 @@ Also install **ffmpeg** (`brew install ffmpeg`, `winget install ffmpeg`, or `sud
 ffmpeg`): it reads video metadata and video frames for visual matching. Everything else works
 without it.
 
+Linux and macOS also need `perl` (macOS ships it; on Linux it is usually installed) for writing
+capture dates into files with ExifTool.
+
 On first launch the app downloads the visual similarity (CLIP) model (about 335 MB, verified by
 its SHA-256). You can keep working while it downloads.
 

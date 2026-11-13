@@ -51,11 +51,12 @@ Create an RFD for:
 
 | RFD | Title | Status | Depends on |
 |---|---|---|---|
-| [RFD-001](RFD-001-electrobun-2-upgrade.md) | Upgrade Electrobun 1.12.3 → 2.0.6 | Draft | — |
-| [RFD-002](RFD-002-single-pass-pipeline-and-clip.md) | Single-pass analysis pipeline + CLIP similarity | Draft | — |
-| [RFD-003](RFD-003-google-takeout-sidecars-and-albums.md) | Google Takeout: JSON sidecars, albums, motion photos | Draft | — |
-| [RFD-004](RFD-004-react-ui-rewrite.md) | React UI rewrite on Electrobun 2.x, no `useEffect` | Draft | RFD-001 |
-| [RFD-005](RFD-005-folder-owner-devices.md) | Folder owner devices: keep the copy in the phone owner's folder | Draft | RFD-003, RFD-004 |
+| [RFD-001](RFD-001-electrobun-2-upgrade.md) | Upgrade Electrobun 1.12.3 → 2.0.6 | Implemented | — |
+| [RFD-002](RFD-002-single-pass-pipeline-and-clip.md) | Single-pass analysis pipeline + CLIP similarity | Implemented | — |
+| [RFD-003](RFD-003-google-takeout-sidecars-and-albums.md) | Google Takeout: JSON sidecars, albums, motion photos | Implemented | — |
+| [RFD-004](RFD-004-react-ui-rewrite.md) | React UI rewrite on Electrobun 2.x, no `useEffect` | Implemented | RFD-001 |
+| [RFD-005](RFD-005-folder-owner-devices.md) | Folder owner devices: keep the copy in the phone owner's folder | Implemented | RFD-003, RFD-004 |
+| [RFD-006](RFD-006-capture-dates.md) | Capture dates from Google JSON, file names and dated folders | Implemented | RFD-003 |
 
 Suggested order: RFD-001 → RFD-002 (pipeline refactor first) and RFD-003 in parallel →
 RFD-004. The production dedup run waits for all four, on a fresh Google Takeout.

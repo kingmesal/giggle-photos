@@ -33,6 +33,20 @@ Files: `applyDecisions.ts` (orchestrates), `deletion-plan.ts` (pure safety rules
 
 ---
 
+### Capture dates — `packages/core/src/dates/capture-date-writer.ts`
+
+**Risk**: Wrong dates written into the user's originals, with no backup (maintainer's choice)
+
+**Before touching**:
+- Only files whose metadata has no `dateTaken` are candidates, and proposals are recomputed at
+  apply time; keep both, or a file dated in the meantime could be overwritten.
+- Source order is Google JSON > file name > folder; `date-parse.ts` rejects impossible dates and
+  years outside 1990…next year. Add a test for every new name or folder pattern.
+- After a write, update SHA-256, size and `dateTaken` from the file on disk (see `recordWrite`).
+- Run `dates/capture-dates.test.ts` (real files, real ExifTool) after changes.
+
+---
+
 ### Database Schema — `packages/core/src/db/schema.ts`
 
 **Risk**: Data corruption, silent type mismatches

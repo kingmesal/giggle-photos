@@ -16,6 +16,10 @@ export {
   getAppInfo,
   initAppInfoService,
 } from "./services/app-info-service";
+export {
+  type CaptureDatesRPC,
+  initCaptureDatesService,
+} from "./services/capture-dates-service";
 export { type ClipModelStatus, type ClipRPC, initClipService } from "./services/clip-service";
 export {
   type DatabaseInfo,

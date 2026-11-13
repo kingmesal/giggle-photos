@@ -17,6 +17,7 @@ import type { DeviceKey } from "@giggle-photos/core/zod/folder-owner-device";
 import type { ScanFolder as ScanFolderType, UpdateScanFolder } from "@giggle-photos/core/zod/scan-folder";
 import type { RPCSchema } from "electrobun/main";
 import type { AppInfo } from "./app-info";
+import type { CaptureDateJob, CaptureDateReportResponse } from "./handlers/capture-dates";
 import type { QuarantineStatusResponse } from "./handlers/quarantine";
 
 type ClipModelStatus = ReturnType<typeof getClipModelStatus>;
@@ -79,6 +80,18 @@ export type GigglePhotosRPC = {
       compareImmichGoReport: {
         params: { report: string };
         response: ImportCheckResult;
+      };
+      getCaptureDateReport: {
+        params: Record<string, never>;
+        response: CaptureDateReportResponse;
+      };
+      startCaptureDates: {
+        params: Record<string, never>;
+        response: CaptureDateJob;
+      };
+      getCaptureDateJob: {
+        params: Record<string, never>;
+        response: CaptureDateJob;
       };
       listFolderDevices: {
         params: { scanFolderId: number };

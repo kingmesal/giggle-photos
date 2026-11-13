@@ -197,6 +197,7 @@ Small, coherent commits. Squash merge to `main`.
 
 Before modifying these files, review `_FRAGILE.md`:
 - `packages/core/src/actions/applyDecisions.ts` — File deletion (permanent data loss risk)
+- `packages/core/src/dates/capture-date-writer.ts` — Writes capture dates into original files, no backup
 - `packages/core/src/db/schema.ts` — Database schema (data corruption risk)
 - `packages/core/src/db/wrapper.ts` — Database wrapper (validation bypass risk)
 

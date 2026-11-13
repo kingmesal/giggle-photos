@@ -9,6 +9,7 @@ import { join } from "node:path";
 
 const REQUIRED: [string, RegExp][] = [
   ["sharp", /app\/bun\/node_modules\/sharp\/package\.json$/],
+  ["exiftool", /app\/bun\/node_modules\/exiftool-vendored\.(pl|exe)\/bin\/exiftool(\.exe)?$/],
   ["sharp native binary", /app\/bun\/node_modules\/@img\/sharp-[^/]+\/(lib|package\.json)/],
   [
     "onnxruntime binding",

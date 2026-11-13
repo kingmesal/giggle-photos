@@ -13,7 +13,8 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, realpathSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-const ROOTS = ["sharp", "onnxruntime-node"] as const;
+// exiftool-vendored runs the bundled ExifTool (Perl script, or exe on Windows) found next to it.
+const ROOTS = ["sharp", "onnxruntime-node", "exiftool-vendored"] as const;
 const appRoot = join(import.meta.dir, "..");
 const resolveFrom = join(appRoot, "..", "..", "packages", "core");
 
@@ -94,7 +95,9 @@ function probeNativeModules(dir: string): void {
   const probe =
     "const s=require('sharp');const o=require('onnxruntime-node');" +
     "if(typeof s!=='function'||typeof o.InferenceSession?.create!=='function')throw new Error('bad exports');" +
-    "console.log('sharp', s.versions.vips, 'onnxruntime ok')";
+    "const {ExifTool}=require('exiftool-vendored');const et=new ExifTool({maxProcs:1});" +
+    "et.version().then(v=>{console.log('sharp', s.versions.vips, 'onnxruntime ok', 'exiftool', v);return et.end()})" +
+    ".catch(e=>{console.error(e);process.exit(1)})";
   const run = Bun.spawnSync([process.execPath, "-e", probe], { cwd: dir, stdout: "pipe", stderr: "pipe" });
   if (run.exitCode !== 0) {
     throw new Error(`postBuild: the copied native modules do not load\n${run.stderr.toString()}`);

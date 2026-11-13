@@ -1,6 +1,7 @@
 import { BrowserView } from "electrobun/main";
 import { getFileServerPort } from "./file-server";
 import { getAppInfo } from "./handlers/app-info";
+import { getCaptureDateJob, getCaptureDateReport, startCaptureDates } from "./handlers/capture-dates";
 import { getClipModelStatus, importClipModelFile, retryClipModelSetup } from "./handlers/clip";
 import { getDatabaseInfo, openDatabaseFolder, resetApplication } from "./handlers/database";
 import {
@@ -53,6 +54,9 @@ export const appRPC = BrowserView.defineRPC<GigglePhotosRPC>({
       getSystemHealth,
       getTakeoutReport,
       compareImmichGoReport,
+      getCaptureDateReport,
+      startCaptureDates,
+      getCaptureDateJob,
       listFolderDevices,
       setFolderOwnerDevices,
       getQuarantineStatus,
