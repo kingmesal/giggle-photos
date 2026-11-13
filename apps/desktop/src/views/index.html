@@ -11,8 +11,8 @@
 </head>
 <body class="bg-surface text-fg">
   <div id="app"></div>
-  <!-- In development, this will be bundled by Electrobun -->
-  <!-- In production, Electrobun will bundle this as mainview.js -->
-  <script type="module" src="./mainview.js"></script>
+  <!-- Electrobun 2 bundles src/views/mainview.ts as views/mainview/index.js
+       (scripts/check-package.ts fails the release if this name is wrong). -->
+  <script type="module" src="./index.js"></script>
 </body>
 </html>

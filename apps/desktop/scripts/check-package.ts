@@ -84,10 +84,25 @@ export function missingFrom(paths: string[]): string[] {
   return REQUIRED.filter(([, re]) => !paths.some((p) => re.test(p))).map(([label]) => label);
 }
 
+/** Local files the main view's index.html loads (script src, stylesheet href). */
+export function viewReferences(html: string): string[] {
+  const refs = [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="([^"]+)"/g)].map((m) => m[1] as string);
+  return refs.filter((r) => !/^[a-z]+:\/\//i.test(r)).map((r) => r.replace(/^\.\//, ""));
+}
+
+/** References in index.html that are not in the packaged views/mainview folder. */
+export function missingViewFiles(html: string, paths: string[]): string[] {
+  return viewReferences(html).filter((ref) => !paths.some((p) => p.endsWith(`app/views/mainview/${ref}`)));
+}
+
 if (import.meta.main) {
   const buildDir = join(import.meta.dir, "..", "build");
   const paths = packagedPaths(buildDir);
-  const missing = missingFrom(paths);
+  const html = readFileSync(join(import.meta.dir, "..", "src", "views", "index.html"), "utf-8");
+  const missing = [
+    ...missingFrom(paths),
+    ...missingViewFiles(html, paths).map((f) => `views/mainview/${f} (loaded by index.html)`),
+  ];
   if (missing.length > 0) {
     process.stderr.write(`Package check failed (${paths.length} paths scanned): missing ${missing.join(", ")}\n`);
     process.exit(1);

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "bun:test";
-import { missingFrom, tarEntries } from "./check-package";
+import { missingFrom, missingViewFiles, tarEntries, viewReferences } from "./check-package";
 import { findAppBunDir, keepOnnxPath } from "./native-modules";
 
 const dir = mkdtempSync(join(tmpdir(), "packaging-"));
@@ -72,5 +72,15 @@ describe("package check", () => {
     expect(missingFrom(complete)).toEqual([]);
     expect(missingFrom(["app/bun/index.js"])).toEqual(["sharp", "sharp native binary", "onnxruntime binding"]);
     expect(missingFrom(complete.filter((p) => !p.includes("onnxruntime")))).toEqual(["onnxruntime binding"]);
+  });
+});
+
+describe("view files", () => {
+  test("index.html's script and stylesheets must be in the package (a wrong name means a black window)", async () => {
+    const html = await Bun.file(join(import.meta.dir, "..", "src", "views", "index.html")).text();
+    expect(viewReferences(html).sort()).toEqual(["index.js", "styles.css", "tailwind.css"]);
+    const packaged = ["index.html", "index.js", "styles.css", "tailwind.css"].map((f) => `app/views/mainview/${f}`);
+    expect(missingViewFiles(html, packaged)).toEqual([]);
+    expect(missingViewFiles('<script src="./mainview.js"></script>', packaged)).toEqual(["mainview.js"]);
   });
 });
