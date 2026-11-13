@@ -32,7 +32,7 @@ export const config = {
     bun: {
       entrypoint: "src/bun/index.ts",
       // Native modules must be external - they can't be bundled
-      external: ["sharp", "onnxruntime-node", "exiftool-vendored"],
+      external: ["sharp", "onnxruntime-node"],
     },
     views: {
       mainview: {

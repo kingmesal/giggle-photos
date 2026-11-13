@@ -35,17 +35,18 @@ Files: `applyDecisions.ts` (orchestrates), `deletion-plan.ts` (pure safety rules
 
 ### Capture dates — `packages/core/src/dates/capture-date-writer.ts`
 
-**Risk**: Wrong dates written into the user's originals, with no backup (maintainer's choice)
+**Risk**: Wrong dates in the sidecars Immich imports; overwriting another app's XMP
 
 **Before touching**:
+- Dates go into `<file>.xmp` sidecars; never write into the original files.
+- Only rewrite a sidecar marked `xmp:CreatorTool="Giggle Photos"`; any other `.xmp` is left alone.
 - Only files whose metadata has no `dateTaken` are candidates, and proposals are recomputed at
-  apply time; keep both, or a file dated in the meantime could be overwritten.
-- Source order is Google JSON > file name > folder; `date-parse.ts` rejects impossible dates and
-  years outside 1990…next year. Add a test for every new name or folder pattern.
-- After a write, update SHA-256, size and `dateTaken` from the file on disk (see `recordWrite`).
+  apply time. Source order is Google JSON > file name > folder; `date-parse.ts` rejects impossible
+  dates and years outside 1990…next year. Add a test for every new name or folder pattern.
 - Writing is the final step: `startCaptureDates` must keep refusing until `captureDatesReadiness`
   is ready (duplicates reviewed, conflicts resolved, deletions applied).
-- Run `dates/capture-dates.test.ts` (real files, real ExifTool) after changes.
+- `applyDecisions.ts` moves a removed file's `.xmp` with it; keep that in step with the naming.
+- Run `dates/capture-dates.test.ts` (real files; ExifTool reads the sidecars back) after changes.
 
 ---
 

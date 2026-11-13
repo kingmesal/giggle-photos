@@ -55,7 +55,7 @@ function NotYet({ blockers }: { blockers: string[] }): ReactNode {
         <Lock size="1em" /> Final step: finish the duplicate checks first
       </p>
       <p className="mt-1 text-fg-3">
-        Writing a date changes the file, so exact-duplicate matching would no longer recognise its copies.
+        Dates are written only for the copies you keep, so review and apply the duplicates first.
       </p>
       <ul className="mt-2 list-disc pl-5 text-fg-2">
         {blockers.map((b) => (
@@ -86,11 +86,12 @@ function JobStatus({ job }: { job: CaptureDateJob }): ReactNode {
   if (job.error) return <div className="mb-4 p-3 rounded-lg bg-red-500/20 text-accent-red text-sm">{job.error}</div>;
   if (!job.result) return null;
   const { written, failed, errors } = job.result;
+  const skipped = job.result.skipped ?? 0;
   return (
     <div className="mb-4 p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-sm" role="status">
       <p>
         <CircleCheck size="1em" className="inline mr-2 text-accent-green" />
-        {`Wrote ${written.toLocaleString()} dates${failed > 0 ? `; ${failed} files could not be changed` : ""}.`}
+        {`Wrote ${written.toLocaleString()} date sidecars${skipped > 0 ? `; ${skipped} skipped (another app's sidecar is there)` : ""}${failed > 0 ? `; ${failed} failed` : ""}.`}
       </p>
       {errors.length > 0 && (
         <ul className="mt-1 text-xs text-accent-amber font-mono max-h-32 overflow-y-auto">

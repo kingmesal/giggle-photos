@@ -1,4 +1,4 @@
-/** Confirm before writing dates into the original files (no backup is kept). */
+/** Confirm before writing capture-date sidecars (.xmp) next to the files. */
 import { CalendarClock } from "lucide-react";
 import type { ReactNode } from "react";
 import { Dialog, DialogHeader } from "../results/Dialog";
@@ -18,16 +18,15 @@ export function ApplyDatesDialog({
         icon={<CalendarClock size="1em" />}
         iconClass="bg-amber-500/20 text-accent-amber"
         title="Write capture dates?"
-        subtitle={`${count.toLocaleString()} files will be changed`}
+        subtitle={`${count.toLocaleString()} sidecar files will be written`}
         className="p-6 pb-4"
       />
       <div className="px-6 pb-4 space-y-2 text-sm text-fg-3">
-        <p>The date is written into each original file's metadata. The picture itself is not re-encoded.</p>
-        <p className="text-accent-amber">No backup copy is kept, and this cannot be undone.</p>
         <p>
-          The files' bytes change, so exact-duplicate matching (SHA-256) sees them as new files. Review duplicates
-          first.
+          Each date goes into a small XMP sidecar next to the file (for example <code>IMG_1.jpg.xmp</code>). Your
+          original files are not changed.
         </p>
+        <p>Immich, Lightroom and digiKam read these sidecars. A sidecar another app already wrote is left alone.</p>
       </div>
       <div className="flex justify-end gap-3 px-6 py-4 border-t border-edge">
         <button

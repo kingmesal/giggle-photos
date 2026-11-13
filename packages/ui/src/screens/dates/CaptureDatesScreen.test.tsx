@@ -55,7 +55,13 @@ function rpc() {
   return {
     api,
     finish: () => {
-      job = { running: false, done: 2, total: 2, result: { written: 2, failed: 0, errors: [] }, error: null };
+      job = {
+        running: false,
+        done: 2,
+        total: 2,
+        result: { written: 2, failed: 0, skipped: 0, errors: [] },
+        error: null,
+      };
       report = { ...REPORT, total: 0, bySource: {}, byPrecision: {}, proposals: [] };
     },
   };
@@ -79,13 +85,13 @@ describe("CaptureDatesScreen", () => {
     render(<CaptureDatesScreen />);
     await waitFor(() => expect(screen.getByTestId("capture-date-table")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: /Write Dates \(2\)/ }));
-    expect(screen.getByText(/No backup copy is kept/)).toBeTruthy();
+    expect(screen.getByText(/Your original files are not changed/)).toBeTruthy();
     expect(api.startCaptureDates).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Write Dates" }));
     await waitFor(() => expect(screen.getByText("Writing dates: 1 of 2 (50%)")).toBeTruthy());
     finish();
     await act(() => new Promise((r) => setTimeout(r, 1100)));
-    await waitFor(() => expect(screen.getByText("Wrote 2 dates.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Wrote 2 date sidecars.")).toBeTruthy());
     await waitFor(() => expect(screen.getByText(/already has a date/)).toBeTruthy());
     expect(api.getCaptureDateReport).toHaveBeenCalledTimes(2);
   });

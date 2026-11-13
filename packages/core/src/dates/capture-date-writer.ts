@@ -1,54 +1,66 @@
-// ⚠️ FRAGILE: See _FRAGILE.md — writes into the user's original files, with no backup (maintainer's choice).
 /**
- * Apply capture-date proposals (RFD-006): write the date into each file's metadata in place with
- * ExifTool (lossless: the image data is not re-encoded), then update the database: the new
- * SHA-256 and size (the bytes changed), and the metadata's dateTaken.
+ * Apply capture-date proposals (RFD-006) as XMP sidecars: `<file>.xmp` next to each photo or video
+ * (e.g. `IMG_1.jpg.xmp`, the naming Immich prefers), never touching the original. Then the database
+ * records the date (`dateTaken`), so the file is not proposed again.
  *
- * Photos: EXIF DateTimeOriginal + CreateDate (+ OffsetTime* "+00:00" for exact UTC times from the
- * Google JSON). Videos: QuickTime CreateDate / MediaCreateDate / TrackCreateDate, which the
- * QuickTime spec stores in UTC; a wall time from a name or folder is written as given.
+ * Sidecars this app wrote are marked (xmp:CreatorTool "Giggle Photos") and may be rewritten; any
+ * other existing `.xmp` belongs to someone else and is left alone (reported as skipped).
  */
-import { stat } from "node:fs/promises";
-import { ExifTool, type WriteTags } from "exiftool-vendored";
+import { readFile, writeFile } from "node:fs/promises";
 import type { DatabaseProvider } from "../db/database-provider";
 import { getLogger } from "../logging/logger";
-import { computeSha256 } from "../scan/hash-sha256";
 import { type CaptureDateProposal, findCaptureDateProposals } from "./capture-dates";
 
 const log = getLogger("core:capture-dates");
+export const CREATOR_TOOL = "Giggle Photos";
 
-/** "2019-05-12T14:30:00[.000Z]" → "2019:05:12 14:30:00" */
-const exifStamp = (iso: string) => iso.slice(0, 19).replace(/^(\d{4})-(\d{2})-(\d{2})T/, "$1:$2:$3 ");
+/** Sidecar path for a media file. */
+export const xmpPath = (mediaPath: string): string => `${mediaPath}.xmp`;
 
-/** The tags to write for one proposal. Pure. */
-export function captureDateTags(p: CaptureDateProposal): Record<string, string> {
-  const stamp = exifStamp(p.takenAt);
-  if (p.fileType === "video") return { CreateDate: stamp, MediaCreateDate: stamp, TrackCreateDate: stamp };
-  const tags: Record<string, string> = { DateTimeOriginal: stamp, CreateDate: stamp };
-  if (p.precision === "exact") Object.assign(tags, { OffsetTimeOriginal: "+00:00", OffsetTimeDigitized: "+00:00" });
-  return tags;
+/** XMP date value: exact instants keep their UTC offset; wall times carry no zone. */
+export function xmpDate(p: CaptureDateProposal): string {
+  return p.precision === "exact" ? `${p.takenAt.slice(0, 19)}+00:00` : p.takenAt.slice(0, 19);
 }
 
-/** dateTaken for the database: the exact instant, or the wall time read in this machine's zone. */
-export function takenDate(p: CaptureDateProposal): Date {
-  return new Date(p.takenAt);
+const escapeXml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** The sidecar document for one proposal. Pure. */
+export function captureDateXmp(p: CaptureDateProposal): string {
+  const d = xmpDate(p);
+  const source = escapeXml(`${p.source}: ${p.detail}`);
+  return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="${CREATOR_TOOL}">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about=""
+    xmlns:exif="http://ns.adobe.com/exif/1.0/"
+    xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+    xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    exif:DateTimeOriginal="${d}"
+    xmp:CreateDate="${d}"
+    photoshop:DateCreated="${d}"
+    xmp:CreatorTool="${CREATOR_TOOL}">
+   <dc:source>${source}</dc:source>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>
+`;
 }
 
 export interface ApplyCaptureDatesResult {
   written: number;
   failed: number;
+  /** Files that already have an .xmp written by something else (left alone). */
+  skipped: number;
   errors: { fileId: number; path: string; error: string }[];
 }
 
-type Db = Pick<
-  DatabaseProvider,
-  "getClient" | "getMediaFileProvider" | "getImageMetadataProvider" | "getVideoMetadataProvider"
->;
+type Db = Pick<DatabaseProvider, "getClient" | "getImageMetadataProvider" | "getVideoMetadataProvider">;
 
-async function recordWrite(db: Db, p: CaptureDateProposal): Promise<void> {
-  const [sha256Hash, info] = await Promise.all([computeSha256(p.path), stat(p.path)]);
-  await db.getMediaFileProvider().updateMediaFile({ id: p.fileId, sha256Hash, size: info.size });
-  const dateTaken = takenDate(p);
+async function recordDate(db: Db, p: CaptureDateProposal): Promise<void> {
+  const dateTaken = new Date(p.takenAt);
   if (p.fileType === "image") {
     const meta = await db.getImageMetadataProvider().getByMediaFileIds([p.fileId]);
     if (meta[0]) await db.getImageMetadataProvider().updateImageMetadata({ id: meta[0].id, dateTaken });
@@ -58,10 +70,17 @@ async function recordWrite(db: Db, p: CaptureDateProposal): Promise<void> {
   }
 }
 
+/** "ours" when this app wrote the sidecar, "foreign" when someone else did, null when there is none. */
+async function existingSidecar(path: string): Promise<"ours" | "foreign" | null> {
+  const text = await readFile(path, "utf-8").catch(() => null);
+  if (text === null) return null;
+  return text.includes(`xmp:CreatorTool="${CREATOR_TOOL}"`) ? "ours" : "foreign";
+}
+
 /**
- * Write every current proposal (or only `fileIds`). Each file is independent: a failure is
- * reported and the rest continue. Proposals are recomputed here, so a file dated since the review
- * is never overwritten.
+ * Write a sidecar for every current proposal (or only `fileIds`). Each file is independent: a
+ * failure is reported and the rest continue. Proposals are recomputed here, so a file dated since
+ * the review is skipped.
  */
 export async function applyCaptureDates(
   db: Db,
@@ -70,28 +89,35 @@ export async function applyCaptureDates(
   const { proposals } = await findCaptureDateProposals(db);
   const wanted = options.fileIds ? new Set(options.fileIds) : null;
   const todo = wanted ? proposals.filter((p) => wanted.has(p.fileId)) : proposals;
-  const result: ApplyCaptureDatesResult = { written: 0, failed: 0, errors: [] };
-  if (todo.length === 0) return result;
-  log.info("Writing capture dates", { files: todo.length });
-
-  const exiftool = new ExifTool({ maxProcs: 2, taskTimeoutMillis: 30_000 });
-  try {
-    for (const [i, p] of todo.entries()) {
-      try {
-        await exiftool.write(p.path, captureDateTags(p) as WriteTags, { writeArgs: ["-overwrite_original"] });
-        await recordWrite(db, p);
+  const result: ApplyCaptureDatesResult = { written: 0, failed: 0, skipped: 0, errors: [] };
+  log.info("Writing capture-date sidecars", { files: todo.length });
+  for (const [i, p] of todo.entries()) {
+    const target = xmpPath(p.path);
+    try {
+      if ((await existingSidecar(target)) === "foreign") {
+        result.skipped++;
+        result.errors.push({
+          fileId: p.fileId,
+          path: target,
+          error: "An XMP sidecar from another app is already there",
+        });
+      } else {
+        await writeFile(target, captureDateXmp(p), "utf-8");
+        await recordDate(db, p);
         result.written++;
-      } catch (error) {
-        result.failed++;
-        const message = error instanceof Error ? error.message : String(error);
-        result.errors.push({ fileId: p.fileId, path: p.path, error: message });
-        log.warn("Could not write capture date", { path: p.path, error: message });
       }
-      options.onProgress?.(i + 1, todo.length, p.path);
+    } catch (error) {
+      result.failed++;
+      const message = error instanceof Error ? error.message : String(error);
+      result.errors.push({ fileId: p.fileId, path: target, error: message });
+      log.warn("Could not write capture-date sidecar", { path: target, error: message });
     }
-  } finally {
-    await exiftool.end();
+    options.onProgress?.(i + 1, todo.length, p.path);
   }
-  log.info("Capture dates written", { written: result.written, failed: result.failed });
+  log.info("Capture-date sidecars written", {
+    written: result.written,
+    skipped: result.skipped,
+    failed: result.failed,
+  });
   return result;
 }

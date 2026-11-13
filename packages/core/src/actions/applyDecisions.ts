@@ -7,9 +7,11 @@
  *    is refused. A dry run returns that plan and changes nothing — run it first.
  * 2. Each planned file is removed in one of three ways: moved into the quarantine folder (default
  *    for the Takeout run: undoable, keeps the Takeout layout), moved to the system trash, or deleted
- *    permanently. Its own sidecars follow the same way, only after the file itself succeeded.
+ *    permanently. Its own sidecars follow the same way, only after the file itself succeeded,
+ *    including a `<file>.xmp` next to it (capture dates, RFD-006).
  * 3. Database records are removed only after the file was removed.
  */
+import { existsSync } from "node:fs";
 import { DatabaseProvider } from "../db/database-provider";
 import { getLogger } from "../logging/logger";
 import { type DeletionPlan, type PlannedRemoval, planDeletions } from "./deletion-plan";
@@ -121,6 +123,12 @@ export async function applyDeletions(options?: ApplyDecisionOptions, database?: 
         else result.errors.push({ fileId: removal.fileId, path: sidecar.path, error: s.error ?? "Unknown error" });
       }
       result.sidecarsRemoved += movedSidecars.length;
+      const xmp = `${removal.path}.xmp`;
+      if (existsSync(xmp)) {
+        const x = await removeOne(xmp, "sidecar", mode, scanFolderPath, quarantineRoot);
+        if (x.success) result.sidecarsRemoved++;
+        else result.errors.push({ fileId: removal.fileId, path: xmp, error: x.error ?? "Unknown error" });
+      }
       try {
         await takeout.deleteSidecars(movedSidecars);
         await media.deleteMediaFile(removal.fileId); // cascades to decisions, matches, pairs

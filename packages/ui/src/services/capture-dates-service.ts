@@ -33,7 +33,12 @@ export interface CaptureDateJob {
   running: boolean;
   done: number;
   total: number;
-  result: { written: number; failed: number; errors: { fileId: number; path: string; error: string }[] } | null;
+  result: {
+    written: number;
+    failed: number;
+    skipped?: number;
+    errors: { fileId: number; path: string; error: string }[];
+  } | null;
   error: string | null;
 }
 

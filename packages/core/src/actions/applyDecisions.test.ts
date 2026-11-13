@@ -187,6 +187,18 @@ describe("applyDeletions", () => {
     );
   });
 
+  test("a removed file's XMP sidecar (capture date) goes with it, and comes back on restore", async () => {
+    writeFileSync(at(`${Y}/C2.jpg.xmp`), "<x:xmpmeta/>");
+    writeFileSync(at(`${A}/A.jpg.xmp`), "<x:xmpmeta/>"); // a kept file's sidecar stays
+    const r = await applyDeletions({ quarantineRoot: quarantine }, db);
+    expect(r.sidecarsRemoved).toBe(3);
+    expect(existsSync(at(`${Y}/C2.jpg.xmp`))).toBe(false);
+    expect(existsSync(inQuarantine(`${Y}/C2.jpg.xmp`))).toBe(true);
+    expect(existsSync(at(`${A}/A.jpg.xmp`))).toBe(true);
+    await restoreQuarantine(quarantine);
+    expect(existsSync(at(`${Y}/C2.jpg.xmp`))).toBe(true);
+  });
+
   test("everything quarantined can be restored", async () => {
     await applyDeletions({ quarantineRoot: quarantine }, db);
     const restored = await restoreQuarantine(quarantine);

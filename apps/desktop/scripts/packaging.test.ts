@@ -59,7 +59,6 @@ describe("package check", () => {
   const complete = [
     "app/bun/index.js",
     "app/bun/node_modules/sharp/package.json",
-    "app/bun/node_modules/exiftool-vendored.pl/bin/exiftool",
     "app/bun/node_modules/@img/sharp-linux-arm64/lib/sharp-linux-arm64.node",
     `app/bun/node_modules/onnxruntime-node/bin/napi-v6/linux/arm64/${"x".repeat(0)}onnxruntime_binding.node`,
   ];
@@ -71,12 +70,7 @@ describe("package check", () => {
 
   test("reports exactly what is missing", () => {
     expect(missingFrom(complete)).toEqual([]);
-    expect(missingFrom(["app/bun/index.js"])).toEqual([
-      "sharp",
-      "exiftool",
-      "sharp native binary",
-      "onnxruntime binding",
-    ]);
+    expect(missingFrom(["app/bun/index.js"])).toEqual(["sharp", "sharp native binary", "onnxruntime binding"]);
     expect(missingFrom(complete.filter((p) => !p.includes("onnxruntime")))).toEqual(["onnxruntime binding"]);
   });
 });
