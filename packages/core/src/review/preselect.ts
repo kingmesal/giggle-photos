@@ -4,10 +4,13 @@
  *
  * Rules, in order:
  *   - clip groups: no preselection (review-only, RFD-002 §G).
- *   - E.1 sha256 groups with album copies: keep EVERY album copy, delete the year-folder copies.
- *     "In an album" = lives in an album folder, or an album-only sidecar points at it (deleting it
- *     would drop it from that album).
- *   - otherwise keep ONE file, ranked:
+ *   - Ordered narrowing rules (the user's order; default album, then owner device). Each narrows the
+ *     candidates only when it splits them (some match, some don't):
+ *       album (sha256 and phash): copies in an album. "In an album" = lives in an album folder, or an
+ *         album-only sidecar points at it (deleting it would drop it from that album).
+ *       owner_device (RFD-005): copies taken with a camera their own scan folder owns.
+ *   - E.1 sha256 groups whose candidates are album copies: keep EVERY one of them.
+ *   - otherwise keep ONE of the candidates, ranked:
  *       sha256 / content_hash (same bytes / pixels): Google copy over non-Google (E.3), not in a
  *         special folder (Trash/Archive), has a sidecar (E.2), folder priority, oldest, lowest id.
  *       phash (near-duplicates, E.4): in an album, has a sidecar, higher resolution, larger file,
@@ -18,6 +21,10 @@
  */
 
 export type PreselectMethod = "sha256" | "content_hash" | "phash" | "clip";
+
+/** Rules whose order the user sets (RFD-005); the first that splits a group wins. */
+export type PreselectRule = "album" | "owner_device";
+export const DEFAULT_RULE_ORDER: readonly PreselectRule[] = ["album", "owner_device"];
 
 export interface PreselectFile {
   id: number;
@@ -37,6 +44,8 @@ export interface PreselectFile {
   exifFields: number;
   motionPartnerId: number | null;
   editedPartnerId: number | null;
+  /** Taken with a camera that this file's own scan folder owns (RFD-005). */
+  ownedDevice?: boolean;
 }
 
 export interface Preselection {
@@ -113,25 +122,51 @@ function withPartners(keep: Set<number>, files: PreselectFile[]): Set<number> {
   return keep;
 }
 
-export function preselect(method: PreselectMethod, files: readonly PreselectFile[]): Preselection {
+const NARROWING: Record<PreselectRule, { label: string; match: (f: PreselectFile) => boolean }> = {
+  album: { label: "In an album", match: inAlbum },
+  owner_device: { label: "Taken with this folder owner's device", match: (f) => f.ownedDevice === true },
+};
+
+export function preselect(
+  method: PreselectMethod,
+  files: readonly PreselectFile[],
+  ruleOrder: readonly PreselectRule[] = DEFAULT_RULE_ORDER,
+): Preselection {
   if (method === "clip") {
     return { keepFileIds: [], rule: "clip_review_only", reason: "Visual matches are for review only" };
   }
   if (files.length === 0) return { keepFileIds: [], rule: "best_copy", reason: "No files" };
   const list = [...files];
 
-  const albumCopies = list.filter(inAlbum);
-  if (method === "sha256" && albumCopies.length > 0) {
-    const keep = withPartners(new Set(albumCopies.map((f) => f.id)), list);
+  let candidates = list;
+  let firstReason: string | null = null;
+  let allAlbum = false;
+  for (const rule of ruleOrder) {
+    if (rule === "album" && method === "content_hash") continue; // same pixels, different bytes: E.3 ranking
+    const matching = candidates.filter(NARROWING[rule].match);
+    if (rule === "album") allAlbum = matching.length > 0;
+    if (matching.length > 0 && matching.length < candidates.length) {
+      candidates = matching;
+      firstReason ??= NARROWING[rule].label;
+    }
+    // E.1: exact album copies are all kept (deleting one drops it from its album); later rules stop here.
+    if (rule === "album" && method === "sha256" && allAlbum) break;
+  }
+
+  if (method === "sha256" && allAlbum && candidates.every(inAlbum)) {
+    const keep = withPartners(new Set(candidates.map((f) => f.id)), list);
+    const albumReason = candidates.length > 1 ? "Keep every album copy" : "Album copy beats year folder";
+    const ownerFirst = firstReason === NARROWING.owner_device.label;
     return {
       keepFileIds: [...keep].sort((a, b) => a - b),
       rule: "album_copies",
-      reason: albumCopies.length > 1 ? "Keep every album copy" : "Album copy beats year folder",
+      reason: ownerFirst ? `${firstReason}; ${albumReason.toLowerCase()}` : albumReason,
     };
   }
 
-  const { file, reason } = bestFile(list, method === "phash" ? NEAR_RANKING : EXACT_RANKING);
-  const keep = withPartners(new Set([file.id]), list);
+  const best = bestFile(candidates, method === "phash" ? NEAR_RANKING : EXACT_RANKING);
+  const reason = candidates.length === 1 && firstReason ? firstReason : best.reason;
+  const keep = withPartners(new Set([best.file.id]), list);
   const extra = keep.size > 1 ? " (with its edited/motion partner)" : "";
   return { keepFileIds: [...keep].sort((a, b) => a - b), rule: "best_copy", reason: `${reason}${extra}` };
 }

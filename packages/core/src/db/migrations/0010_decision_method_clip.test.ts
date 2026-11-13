@@ -84,7 +84,7 @@ describe("0010_decision_method_clip", () => {
     expect((await migrator.migrateToLatest()).error).toBeUndefined();
     await decision(1, "sha256", "abc");
     await decision(2, "clip", "clip:1");
-    expect((await migrator.migrateDown()).error).toBeUndefined();
+    expect((await migrator.migrateTo("0009_clip")).error).toBeUndefined();
     const rows = await db.selectFrom("fileDecisions").select(["mediaFileId", "method"]).execute();
     expect(rows).toEqual([{ mediaFileId: 1, method: "sha256" }]);
   });

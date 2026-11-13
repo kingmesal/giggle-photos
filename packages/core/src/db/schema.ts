@@ -2,6 +2,7 @@ import type { Kysely } from "kysely";
 import type { ClipEmbeddingRecord } from "../zod/clip-embedding";
 import type { ClipMatchRecord } from "../zod/clip-match";
 import type { FileDecisionRecord } from "../zod/file-decision";
+import type { FolderOwnerDeviceRecord } from "../zod/folder-owner-device";
 import type { ImageMetadataRecord } from "../zod/image-metadata";
 import type { MediaFileRecord } from "../zod/media-file";
 import type { MediaPairRecord } from "../zod/media-pair";
@@ -33,6 +34,7 @@ export type DatabaseSchema = {
   mediaPairs: MediaPairRecord;
   clipEmbeddings: ClipEmbeddingRecord;
   clipMatches: ClipMatchRecord;
+  folderOwnerDevices: FolderOwnerDeviceRecord;
 };
 
 /**

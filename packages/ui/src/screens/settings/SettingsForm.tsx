@@ -10,6 +10,7 @@ import { getLogger } from "../../services/logger-service";
 import { type CompleteSettings, saveSettings, type TrashCheckResult } from "../../services/settings-service";
 import { ClipSection } from "./ClipSection";
 import { LoggingSection } from "./LoggingSection";
+import { PreselectionSection } from "./PreselectionSection";
 import { ProcessingSection } from "./ProcessingSection";
 import { RemovalSection } from "./RemovalSection";
 import { SaveButton, type SaveStatus } from "./SaveButton";
@@ -100,6 +101,7 @@ export function SettingsForm({
         <LoggingSection draft={draft} update={update} logsPath={logsPath} onLogsFolderChanged={onLogsFolderChanged} />
         <ProcessingSection draft={draft} update={update} />
         <ClipSection draft={draft} update={update} />
+        <PreselectionSection draft={draft} update={update} />
         <RemovalSection draft={draft} update={update} trash={trash} />
         {children}
       </div>

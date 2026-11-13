@@ -38,6 +38,11 @@ export {
   type LogsRPC,
   selectLogsFolder,
 } from "./services/logs-service";
+export {
+  type FolderDevice,
+  initOwnerDevicesService,
+  type OwnerDevicesRPC,
+} from "./services/owner-devices-service";
 export { initProcessingService } from "./services/processing-view-service";
 export {
   initQuarantineService,

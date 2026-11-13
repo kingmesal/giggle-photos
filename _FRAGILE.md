@@ -112,6 +112,10 @@ pHash), `hash-phash.ts` (in-house DCT pHash + Hamming distance), `byte-budget.ts
   for every new filename pattern before changing a rule.
 - Album membership has two forms (physical album copy; album-only sidecar → `album_reference`);
   preselection must honour both.
+- Preselection rule order (`settings.preselectRuleOrder`, RFD-005): album and owner device narrow
+  the candidates in the user's order. For exact duplicates, once the album rule decides, every album
+  copy is kept and later rules stop (deleting an album copy drops it from that album). Cover both
+  orders in `review/preselect-owner.test.ts` when changing this.
 - Never move or rename files inside a Takeout tree: immich-go reads the layout as-is.
 
 ---

@@ -1,3 +1,4 @@
+import { getAppSettings } from "../config/user-config";
 import { DatabaseProvider } from "../db/database-provider";
 import type { DatabaseInstance } from "../db/schema";
 import { getLogger } from "../logging/logger";
@@ -5,10 +6,15 @@ import type { FileDecision, FileDecisionMethod } from "../zod/file-decision";
 import type { ImageMetadata } from "../zod/image-metadata";
 import type { MediaFile } from "../zod/media-file";
 import type { VideoMetadata } from "../zod/video-metadata";
-import { computeAutoSelection } from "./auto-selection";
+import { type AutoSelectionOptions, computeAutoSelection } from "./auto-selection";
 import { clipAnchorId, getClipGroupSummaries, loadClipGroups } from "./clip-groups";
 
 const perfLog = getLogger("performance");
+
+/** Preselection inputs read once per query (settings are read from disk). */
+function selectionOptions(dbProvider: DatabaseProvider): AutoSelectionOptions {
+  return { owners: dbProvider.getFolderOwnerDeviceProvider(), ruleOrder: getAppSettings().preselectRuleOrder };
+}
 
 /**
  * Maximum number of SQL variables per IN/NOT IN clause.
@@ -123,11 +129,11 @@ export async function getPendingGroups(params: {
   let allGroups: LogicalGroupSummary[];
 
   if (method === "sha256" || method === "content_hash") {
-    allGroups = await getHashBasedGroups(db, dbProvider, method, deletedFileIds);
+    allGroups = await getHashBasedGroups(db, dbProvider, method, deletedFileIds, selectionOptions(dbProvider));
   } else if (method === "clip") {
     allGroups = await getClipGroupSummaries(dbProvider, deletedFileIds);
   } else {
-    allGroups = await getPhashGroups(db, dbProvider, phashThreshold, deletedFileIds);
+    allGroups = await getPhashGroups(db, dbProvider, phashThreshold, deletedFileIds, selectionOptions(dbProvider));
   }
 
   // Filter to only groups with at least one undecided file
@@ -157,6 +163,7 @@ async function getHashBasedGroups(
   dbProvider: DatabaseProvider,
   method: "sha256" | "content_hash",
   deletedFileIds: Set<number>,
+  selection: AutoSelectionOptions,
 ): Promise<LogicalGroupSummary[]> {
   const hashField = method === "sha256" ? "sha256Hash" : "contentHash";
   const fileDecisionProvider = dbProvider.getFileDecisionProvider();
@@ -199,7 +206,7 @@ async function getHashBasedGroups(
 
     // Build file contexts for auto-selection
     const filesWithContext = await buildFileContexts(dbProvider, activeFiles, groupKey);
-    const suggestion = await computeAutoSelection(dbProvider.getTakeoutProvider(), method, filesWithContext);
+    const suggestion = await computeAutoSelection(dbProvider.getTakeoutProvider(), method, filesWithContext, selection);
 
     groups.push({
       groupKey,
@@ -287,6 +294,7 @@ async function getPhashGroups(
   dbProvider: DatabaseProvider,
   phashThreshold: number,
   deletedFileIds: Set<number>,
+  selection: AutoSelectionOptions,
 ): Promise<LogicalGroupSummary[]> {
   const phashGroupProvider = dbProvider.getPhashGroupProvider();
 
@@ -374,7 +382,12 @@ async function getPhashGroups(
     // Build file contexts for auto-selection
     const activeFiles = sortedIds.map((id) => ({ id, size: fileSizeMap.get(id) ?? 0 }));
     const filesWithContext = await buildFileContexts(dbProvider, activeFiles, groupKey);
-    const suggestion = await computeAutoSelection(dbProvider.getTakeoutProvider(), "phash", filesWithContext);
+    const suggestion = await computeAutoSelection(
+      dbProvider.getTakeoutProvider(),
+      "phash",
+      filesWithContext,
+      selection,
+    );
 
     groups.push({
       groupKey,
@@ -594,7 +607,12 @@ export async function getLogicalGroupFiles(params: {
     files.push(ctx);
   }
 
-  const suggestion = await computeAutoSelection(dbProvider.getTakeoutProvider(), method, files);
+  const suggestion = await computeAutoSelection(
+    dbProvider.getTakeoutProvider(),
+    method,
+    files,
+    selectionOptions(dbProvider),
+  );
 
   perfLog.info(
     `getLogicalGroupFiles TOTAL: ${(performance.now() - tTotal).toFixed(1)}ms (${files.length} files, method=${method})`,

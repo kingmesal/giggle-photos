@@ -14,6 +14,7 @@ import {
 } from "./handlers/folders";
 import { log } from "./handlers/log";
 import { getLogsPathHandler, selectLogsFolder } from "./handlers/logs";
+import { listFolderDevices, setFolderOwnerDevices } from "./handlers/owner-devices";
 import {
   cancelProcessing,
   getProcessingState,
@@ -52,6 +53,8 @@ export const appRPC = BrowserView.defineRPC<GigglePhotosRPC>({
       getSystemHealth,
       getTakeoutReport,
       compareImmichGoReport,
+      listFolderDevices,
+      setFolderOwnerDevices,
       getQuarantineStatus,
       restoreQuarantinedFiles,
       getClipModelStatus,

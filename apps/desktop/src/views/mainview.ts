@@ -13,6 +13,7 @@ import {
   initFoldersService,
   initLoggerService,
   initLogsService,
+  initOwnerDevicesService,
   initProcessingService,
   initQuarantineService,
   initResultsService,
@@ -127,6 +128,14 @@ document.addEventListener("DOMContentLoaded", () => {
     initTakeoutService({
       getTakeoutReport: () => takeoutRequests.getTakeoutReport({}),
       compareImmichGoReport: (report) => takeoutRequests.compareImmichGoReport({ report }),
+    });
+  }
+
+  const deviceRequests = electrobun.rpc?.request;
+  if (deviceRequests?.listFolderDevices && deviceRequests.setFolderOwnerDevices) {
+    initOwnerDevicesService({
+      listFolderDevices: (scanFolderId) => deviceRequests.listFolderDevices({ scanFolderId }),
+      setFolderOwnerDevices: (scanFolderId, devices) => deviceRequests.setFolderOwnerDevices({ scanFolderId, devices }),
     });
   }
 

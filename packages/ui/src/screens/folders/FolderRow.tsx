@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   type LucideIcon,
   RefreshCw,
+  Smartphone,
   Trash2,
 } from "lucide-react";
 import type { ReactElement } from "react";
@@ -73,6 +74,8 @@ export interface FolderRowActions {
   setPriority: (id: number, priority: number) => void;
   quickScan: (id: number) => void;
   requestRemove: (folder: { id: number; path: string }) => void;
+  /** Open the owner devices setup (RFD-005). */
+  editDevices?: (folder: { id: number; path: string }) => void;
 }
 
 export function FolderRow({ folder, actions }: { folder: ScanFolder; actions: FolderRowActions }): ReactElement {
@@ -141,6 +144,17 @@ export function FolderRow({ folder, actions }: { folder: ScanFolder; actions: Fo
           <RefreshCw size="1em" className={ICON} />
         )}
       </button>
+      {actions.editDevices && (
+        <button
+          type="button"
+          className="p-2 rounded-lg transition-colors hover:bg-violet-600/20 text-fg-muted hover:text-violet-400"
+          onClick={() => actions.editDevices?.({ id: folder.id, path: folder.path })}
+          title="Owner devices"
+          aria-label="Owner devices"
+        >
+          <Smartphone size="1em" className={ICON} />
+        </button>
+      )}
       <button
         type="button"
         className="p-2 hover:bg-red-600/20 hover:text-accent-red rounded-lg transition-colors text-fg-muted"

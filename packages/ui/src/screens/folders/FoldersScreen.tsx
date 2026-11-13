@@ -1,14 +1,16 @@
 /** Folders screen: manage the source folders to scan (RFD-004 port of the Sigment FoldersView). */
 import { CircleAlert, FolderPlus, Info } from "lucide-react";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { FolderList } from "./FolderList";
 import { ICON } from "./format";
+import { OwnerDevicesDialog } from "./OwnerDevicesDialog";
 import { RemoveFolderDialog } from "./RemoveFolderDialog";
 import { StatsCards } from "./StatsCards";
 import { useFolders } from "./use-folders";
 
 export function FoldersScreen(): ReactElement {
   const model = useFolders();
+  const [devicesFor, setDevicesFor] = useState<{ id: number; path: string } | null>(null);
   return (
     <div className="h-full flex flex-col">
       <header className="flex-shrink-0 bg-surface border-b border-edge px-6 py-4 z-10">
@@ -54,9 +56,10 @@ export function FoldersScreen(): ReactElement {
           loading={model.loading}
           sort={model.sort}
           onSort={model.sortBy}
-          actions={model}
+          actions={{ ...model, editDevices: setDevicesFor }}
         />
       </div>
+      {devicesFor && <OwnerDevicesDialog key={devicesFor.id} folder={devicesFor} onClose={() => setDevicesFor(null)} />}
       {model.removeTarget && (
         <RemoveFolderDialog
           path={model.removeTarget.path}

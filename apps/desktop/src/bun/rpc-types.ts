@@ -2,6 +2,7 @@ import type { ApplyDecisionResult } from "@giggle-photos/core/actions/applyDecis
 import type { getClipModelStatus } from "@giggle-photos/core/clip/model-service";
 import type { SystemHealth } from "@giggle-photos/core/config/system-health";
 import type { AppSettings } from "@giggle-photos/core/config/user-config";
+import type { FolderDevice } from "@giggle-photos/core/db/folder-owner-device-provider";
 import type {
   AutoSelection,
   FileWithReviewContext,
@@ -12,6 +13,7 @@ import type { PipelineProgress, PipelineState } from "@giggle-photos/core/scan/p
 import type { ImportCheckResult } from "@giggle-photos/core/takeout/import-check";
 import type { TakeoutReport } from "@giggle-photos/core/takeout/takeout-report";
 import type { FileDecisionMethod } from "@giggle-photos/core/zod/file-decision";
+import type { DeviceKey } from "@giggle-photos/core/zod/folder-owner-device";
 import type { ScanFolder as ScanFolderType, UpdateScanFolder } from "@giggle-photos/core/zod/scan-folder";
 import type { RPCSchema } from "electrobun/main";
 import type { AppInfo } from "./app-info";
@@ -77,6 +79,14 @@ export type GigglePhotosRPC = {
       compareImmichGoReport: {
         params: { report: string };
         response: ImportCheckResult;
+      };
+      listFolderDevices: {
+        params: { scanFolderId: number };
+        response: FolderDevice[];
+      };
+      setFolderOwnerDevices: {
+        params: { scanFolderId: number; devices: DeviceKey[] };
+        response: { success: boolean };
       };
       getQuarantineStatus: {
         params: Record<string, never>;

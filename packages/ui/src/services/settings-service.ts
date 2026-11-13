@@ -30,11 +30,19 @@ export interface ClipSettings {
   clipTopK: number;
 }
 
+/** Narrowing preselection rules whose order the person sets (RFD-005). */
+export type PreselectRule = "album" | "owner_device";
+
+export interface PreselectionSettings {
+  /** First rule that splits a duplicate group decides which copies are preselected to keep. */
+  preselectRuleOrder: PreselectRule[];
+}
+
 /**
  * Settings shape - matches AppSettings from core. The removal and CLIP fields are optional here only so
  * RPC wiring that predates them still type-checks; loadSettings fills them from defaults.
  */
-export interface Settings extends Partial<RemovalSettings>, Partial<ClipSettings> {
+export interface Settings extends Partial<RemovalSettings>, Partial<ClipSettings>, Partial<PreselectionSettings> {
   logLevel: string;
   useGlobalLogLevel: boolean;
   loggerLevels: Record<string, string>;
@@ -50,7 +58,7 @@ export interface Settings extends Partial<RemovalSettings>, Partial<ClipSettings
 }
 
 /** Settings with every field present (what loadSettings and getDefaultSettings return). */
-export type CompleteSettings = Settings & RemovalSettings & ClipSettings;
+export type CompleteSettings = Settings & RemovalSettings & ClipSettings & PreselectionSettings;
 
 /** Default settings values */
 const defaultSettings: CompleteSettings = {
@@ -71,6 +79,7 @@ const defaultSettings: CompleteSettings = {
   clipSimilarShotsEnabled: false,
   clipStoreMaxDistance: 0.12,
   clipTopK: 64,
+  preselectRuleOrder: ["album", "owner_device"],
   reviewGridSize: "md",
   compareViewMode: "balanced",
   themeMode: "dark",

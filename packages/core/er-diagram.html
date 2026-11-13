@@ -241,6 +241,14 @@ erDiagram
         INTEGER createdAt "unix timestamp"
     }
 
+    folderOwnerDevices {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER scanFolderId FK "FK → scanFolders.id CASCADE"
+        TEXT cameraMake "nullable — EXIF make, exact"
+        TEXT cameraModel "EXIF model, exact"
+        INTEGER createdAt "unix timestamp"
+    }
+
     scanFolders ||--o{ mediaFiles : "has many"
     mediaFiles ||--o| imageMetadata : "has one (images)"
     mediaFiles ||--o| videoMetadata : "has one (videos)"
@@ -258,6 +266,7 @@ erDiagram
     mediaFiles ||--o{ clipEmbeddings : "has many (per model/frame)"
     mediaFiles ||--o{ clipMatches : "mediaFileId1"
     mediaFiles ||--o{ clipMatches : "mediaFileId2"
+    scanFolders ||--o{ folderOwnerDevices : "owner cameras (RFD-005)"
     </pre>
   </div>
 
@@ -273,6 +282,7 @@ erDiagram
     <span>mediaPairs: <code>UNIQUE(primaryFileId, secondaryFileId)</code>; motion pairs are decided together</span>
     <span>clipEmbeddings: <code>UNIQUE(mediaFileId, frameIndex, modelId)</code></span>
     <span>clipMatches: <code>CHECK mediaFileId1 &lt; mediaFileId2</code>, <code>UNIQUE(mediaFileId1, mediaFileId2, modelId)</code>; review-only</span>
+    <span>folderOwnerDevices: <code>UNIQUE(scanFolderId, cameraMake, cameraModel)</code>; matched against imageMetadata make/model</span>
   </div>
 
   <script type="module">

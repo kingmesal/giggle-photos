@@ -1,6 +1,7 @@
 import { DatabaseClient } from "./client";
 import { ClipProvider } from "./clip-provider";
 import { FileDecisionProvider } from "./file-decision-provider";
+import { FolderOwnerDeviceProvider } from "./folder-owner-device-provider";
 import { ImageMetadataProvider } from "./image-metadata-provider";
 import { MediaFileProvider } from "./media-file-provider";
 import { PhashGroupProvider } from "./phash-group-provider";
@@ -30,6 +31,7 @@ export class DatabaseProvider {
   private settingsProvider: SettingsProvider | null = null;
   private takeoutProvider: TakeoutProvider | null = null;
   private clipProvider: ClipProvider | null = null;
+  private folderOwnerDeviceProvider: FolderOwnerDeviceProvider | null = null;
 
   private constructor(private readonly dbClient: DatabaseClient) {}
 
@@ -165,6 +167,16 @@ export class DatabaseProvider {
   }
 
   /**
+   * Get or create the singleton FolderOwnerDeviceProvider (folderOwnerDevices, RFD-005).
+   */
+  getFolderOwnerDeviceProvider(): FolderOwnerDeviceProvider {
+    if (!this.folderOwnerDeviceProvider) {
+      this.folderOwnerDeviceProvider = new FolderOwnerDeviceProvider(this.getClient().getDb());
+    }
+    return this.folderOwnerDeviceProvider;
+  }
+
+  /**
    * Clear cached providers. Must be called when the client is closed (e.g. after resetDatabase).
    */
   clear(): void {
@@ -178,6 +190,7 @@ export class DatabaseProvider {
     this.settingsProvider = null;
     this.takeoutProvider = null;
     this.clipProvider = null;
+    this.folderOwnerDeviceProvider = null;
   }
 
   /**

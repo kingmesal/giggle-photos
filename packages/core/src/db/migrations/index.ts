@@ -9,6 +9,7 @@ import * as m0007 from "./0007_phash_group_members";
 import * as m0008 from "./0008_takeout";
 import * as m0009 from "./0009_clip";
 import * as m0010 from "./0010_decision_method_clip";
+import * as m0011 from "./0011_folder_owner_devices";
 
 /**
  * All migrations exported in one place so the client can import them and the
@@ -25,4 +26,5 @@ export const migrations: Record<string, Migration> = {
   "0008_takeout": { up: m0008.up, down: m0008.down },
   "0009_clip": { up: m0009.up, down: m0009.down },
   "0010_decision_method_clip": { up: m0010.up, down: m0010.down },
+  "0011_folder_owner_devices": { up: m0011.up, down: m0011.down },
 };

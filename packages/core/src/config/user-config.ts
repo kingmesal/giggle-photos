@@ -55,6 +55,11 @@ export const AppSettings = z.object({
   clipSimilarShotsEnabled: z.boolean().default(false), // opt-in: review up to clipStoreMaxDistance
   clipStoreMaxDistance: z.number().min(0).max(1).default(0.12), // pairs stored; slider never recomputes below this
   clipTopK: z.number().int().min(1).max(1024).default(64), // neighbours considered per image
+  // RFD-005: order of the narrowing preselection rules; the first that splits a group decides.
+  preselectRuleOrder: z
+    .array(z.enum(["album", "owner_device"]))
+    .refine((order) => new Set(order).size === order.length, "Each rule at most once")
+    .default(["album", "owner_device"]),
 
   // UI preferences (persisted across sessions)
   reviewGridSize: z.enum(["sm", "md", "lg", "xl"]).default("md"),
