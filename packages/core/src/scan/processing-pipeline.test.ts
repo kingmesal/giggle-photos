@@ -185,6 +185,15 @@ mock.module("./duplicate-detector", () => ({
   detectDuplicates: mockDetectDuplicates,
 }));
 
+// Mock Takeout indexing (RFD-003); tests below change its result
+type MockTakeoutResult = { roots: string[]; warnings: string[]; summary: null | Record<string, unknown> };
+const mockIndexTakeout = mock(
+  async (_scanFolderId: number): Promise<MockTakeoutResult> => ({ roots: [], warnings: [], summary: null }),
+);
+mock.module("../takeout/takeout-index", () => ({
+  indexTakeout: mockIndexTakeout,
+}));
+
 // Mock the logger
 mock.module("../logging/logger", () => ({
   getLogger: () => ({
@@ -223,6 +232,55 @@ describe("processing-pipeline", () => {
 
   describe("runPipeline", () => {
     describe("scanning stage", () => {
+      const addedFolder = () => [
+        {
+          id: 1,
+          path: "/photos",
+          status: "added",
+          imageCount: 0,
+          videoCount: 0,
+          scanSubdirectories: true,
+          totalSize: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      test("indexes the Google Takeout structure of each scanned folder into the scanning stats", async () => {
+        mockFolders = addedFolder();
+        mockTotalFileCount = 10;
+        const summary = { mediaWithoutSidecar: 3 };
+        mockIndexTakeout.mockImplementation(async () => ({
+          roots: ["/photos/Takeout/Google Photos"],
+          warnings: [],
+          summary,
+        }));
+        let lastStats: Record<string, unknown> | undefined;
+
+        await runPipeline({ onProgress: (p) => (lastStats = p.stageStats as Record<string, unknown>) });
+
+        expect(mockIndexTakeout).toHaveBeenCalledWith(1);
+        const scanning = lastStats?.scanning as { takeout?: unknown } | undefined;
+        expect(scanning?.takeout).toEqual({ roots: 1, warnings: [], summary });
+        mockIndexTakeout.mockImplementation(async () => ({ roots: [], warnings: [], summary: null }));
+      });
+
+      test("a Takeout indexing failure is a warning, not a pipeline failure", async () => {
+        mockFolders = addedFolder();
+        mockTotalFileCount = 10;
+        mockIndexTakeout.mockImplementation(async () => {
+          throw new Error("disk went away");
+        });
+        let lastStats: Record<string, unknown> | undefined;
+
+        const result = await runPipeline({ onProgress: (p) => (lastStats = p.stageStats as Record<string, unknown>) });
+
+        expect(result.totalFiles).toBeGreaterThan(0);
+        const scanning = lastStats?.scanning as { takeout?: { warnings: string[] } } | undefined;
+        expect(scanning?.takeout?.warnings[0]).toMatch(/disk went away/);
+        mockIndexTakeout.mockImplementation(async () => ({ roots: [], warnings: [], summary: null }));
+      });
+
       test("executes scanning stage for folders with status 'added'", async () => {
         mockFolders = [
           {

@@ -5,6 +5,11 @@
 
 // Interim Lucide renderer for legacy icon markup (removed with Sigment, RFD-004)
 export { startIconShim } from "./icons/icon-shim";
+export {
+  initTakeoutService,
+  type TakeoutReport,
+  type TakeoutRPC,
+} from "./services/takeout-service";
 // Layout components
 export { AppLayout } from "./layout/AppLayout";
 export { Sidebar } from "./layout/Sidebar";

@@ -2,9 +2,12 @@ import type { Kysely } from "kysely";
 import type { FileDecisionRecord } from "../zod/file-decision";
 import type { ImageMetadataRecord } from "../zod/image-metadata";
 import type { MediaFileRecord } from "../zod/media-file";
+import type { MediaPairRecord } from "../zod/media-pair";
 import type { PhashGroupMemberRecord } from "../zod/phash-group-member";
 import type { PhashMatchRecord } from "../zod/phash-match";
 import type { ScanFolderRecord } from "../zod/scan-folder";
+import type { SidecarRecord } from "../zod/sidecar";
+import type { TakeoutFolderRecord } from "../zod/takeout-folder";
 import type { VideoMetadataRecord } from "../zod/video-metadata";
 
 /**
@@ -23,6 +26,9 @@ export type DatabaseSchema = {
   phashMatches: PhashMatchRecord;
   phashGroupMembers: PhashGroupMemberRecord;
   fileDecisions: FileDecisionRecord;
+  takeoutFolders: TakeoutFolderRecord;
+  sidecars: SidecarRecord;
+  mediaPairs: MediaPairRecord;
 };
 
 /**

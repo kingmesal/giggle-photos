@@ -73,6 +73,20 @@ pHash), `hash-phash.ts` (in-house DCT pHash + Hamming distance), `byte-budget.ts
 
 ---
 
+### Google Takeout linking — `packages/core/src/takeout/`
+
+**Risk**: A photo loses its album, date or location on import; the wrong copy gets deleted
+
+**Before touching**:
+- `sidecar-match.ts` rules run in a fixed order and the duplicate counter must always agree
+  (`IMG.jpg` and `IMG(1).jpg` share one title). Add a fixture to `fixtures/synthetic-takeout.ts`
+  for every new filename pattern before changing a rule.
+- Album membership has two forms (physical album copy; album-only sidecar → `album_reference`);
+  preselection must honour both.
+- Never move or rename files inside a Takeout tree: immich-go reads the layout as-is.
+
+---
+
 ### RPC — `apps/desktop/src/bun/rpc.ts`
 
 **Risk**: Runtime type errors, inconsistent UI state

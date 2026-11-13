@@ -4,6 +4,8 @@ import { StageTimer } from "../util/timing";
 
 const log = getLogger("core:pipeline");
 
+import type { TakeoutSummary } from "../db/takeout-provider";
+import { indexTakeout } from "../takeout/takeout-index";
 import { detectDuplicates } from "./duplicate-detector";
 import { scanFolder } from "./file-scanner";
 import { processHashBatch } from "./hash-unified";
@@ -29,6 +31,8 @@ export interface StageStatsEntry {
   errorBreakdown?: Record<string, number>;
   /** Timer name -> avg ms */
   timingMs?: Record<string, number>;
+  /** Google Takeout index (scanning stage only, RFD-003) */
+  takeout?: { roots: number; warnings: string[]; summary: TakeoutSummary | null };
   /** Per-algorithm breakdown (hashing stage only) */
   algorithmStats?: {
     sha256: { computed: number; skipped: number; errors: number };
@@ -282,6 +286,33 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
       folderIndex++;
     }
 
+    // Google Takeout awareness (RFD-003): folders, JSON sidecars, pairs. Non-fatal: a failure is
+    // reported as a warning so the scan's results still stand.
+    let takeoutStats: StageStatsEntry["takeout"];
+    for (const folder of foldersToScan) {
+      checkCancelled();
+      updateProgress({ currentOperation: `Reading Google Takeout structure: ${folder.path}` });
+      try {
+        const indexed = await indexTakeout(folder.id);
+        takeoutStats = {
+          roots: (takeoutStats?.roots ?? 0) + indexed.roots.length,
+          warnings: [...(takeoutStats?.warnings ?? []), ...indexed.warnings],
+          summary: indexed.summary ?? takeoutStats?.summary ?? null,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        log.error(`Takeout indexing failed for ${folder.path}: ${message}`);
+        takeoutStats = {
+          roots: takeoutStats?.roots ?? 0,
+          warnings: [
+            ...(takeoutStats?.warnings ?? []),
+            `Could not read Takeout structure of ${folder.path}: ${message}`,
+          ],
+          summary: takeoutStats?.summary ?? null,
+        };
+      }
+    }
+
     // Get total file count (includes previously scanned files)
     const totalFiles = await mediaFiles.getTotalCount();
 
@@ -305,6 +336,7 @@ export async function runPipeline(options?: PipelineOptions): Promise<PipelineRe
       skipped: 0,
       images: scanImages,
       videos: scanVideos,
+      takeout: takeoutStats,
     };
     updateProgress({
       totalFiles,

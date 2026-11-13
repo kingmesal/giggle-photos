@@ -6,6 +6,7 @@ import { PhashGroupProvider } from "./phash-group-provider";
 import { PhashMatchProvider } from "./phash-match-provider";
 import { ScanFolderProvider } from "./scan-folder-provider";
 import { SettingsProvider } from "./settings-provider";
+import { TakeoutProvider } from "./takeout-provider";
 import { VideoMetadataProvider } from "./video-metadata-provider";
 
 /**
@@ -26,6 +27,7 @@ export class DatabaseProvider {
   private phashGroupProvider: PhashGroupProvider | null = null;
   private fileDecisionProvider: FileDecisionProvider | null = null;
   private settingsProvider: SettingsProvider | null = null;
+  private takeoutProvider: TakeoutProvider | null = null;
 
   private constructor(private readonly dbClient: DatabaseClient) {}
 
@@ -141,6 +143,16 @@ export class DatabaseProvider {
   }
 
   /**
+   * Get or create the singleton TakeoutProvider (takeoutFolders, sidecars, mediaPairs).
+   */
+  getTakeoutProvider(): TakeoutProvider {
+    if (!this.takeoutProvider) {
+      this.takeoutProvider = new TakeoutProvider(this.getClient().getDb());
+    }
+    return this.takeoutProvider;
+  }
+
+  /**
    * Clear cached providers. Must be called when the client is closed (e.g. after resetDatabase).
    */
   clear(): void {
@@ -152,6 +164,7 @@ export class DatabaseProvider {
     this.phashGroupProvider = null;
     this.fileDecisionProvider = null;
     this.settingsProvider = null;
+    this.takeoutProvider = null;
   }
 
   /**

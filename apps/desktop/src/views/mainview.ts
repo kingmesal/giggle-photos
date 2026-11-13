@@ -17,6 +17,7 @@ import {
   initResultsService,
   initSettingsService,
   initSystemHealthService,
+  initTakeoutService,
   ProcessingView,
   ResultsView,
   SettingsView,
@@ -143,6 +144,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Initialize system health service with RPC
+  const getTakeoutReportRpc = electrobun.rpc?.request?.getTakeoutReport;
+  if (getTakeoutReportRpc) {
+    initTakeoutService({ getTakeoutReport: () => getTakeoutReportRpc({}) });
+  }
+
   const getSystemHealthRpc = electrobun.rpc?.request?.getSystemHealth;
   if (getSystemHealthRpc) {
     initSystemHealthService({

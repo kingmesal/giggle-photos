@@ -9,6 +9,7 @@ import type {
 } from "@giggle-photos/core/review/review-queries";
 import type { PipelineProgress, PipelineState } from "@giggle-photos/core/scan/processing-pipeline";
 import type { FileDecisionMethod } from "@giggle-photos/core/zod/file-decision";
+import type { TakeoutReport } from "@giggle-photos/core/takeout/takeout-report";
 import type { ScanFolder as ScanFolderType, UpdateScanFolder } from "@giggle-photos/core/zod/scan-folder";
 import type { RPCSchema } from "electrobun/main";
 import type { AppInfo } from "./app-info";
@@ -63,6 +64,10 @@ export type GigglePhotosRPC = {
       getSystemHealth: {
         params: Record<string, never>;
         response: SystemHealth;
+      };
+      getTakeoutReport: {
+        params: Record<string, never>;
+        response: TakeoutReport;
       };
       listFolders: {
         params: Record<string, never>;

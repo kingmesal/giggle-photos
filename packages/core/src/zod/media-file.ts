@@ -42,6 +42,13 @@ export const MediaFile = z.object({
   contentHash: z.string().nullable().default(null).describe("Hash of image bytes without metadata"),
   perceptualHash: z.string().nullable().default(null).describe("Perceptual hash for near-duplicate detection"),
   errorMessage: z.string().nullable().default(null).describe("Error message if status is 'error'"),
+  takeoutFolderId: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .default(null)
+    .describe("Foreign key to takeout_folders (null outside a Google Takeout)"),
   createdAt: DateSchema,
   updatedAt: DateSchema,
 });

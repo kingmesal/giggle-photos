@@ -1,7 +1,8 @@
 # RFD-003: Google Takeout Awareness — JSON Sidecars, Albums, Motion Photos
 
 ## Status
-Draft — 2026-11-12
+Draft — 2026-11-12. Steps 1–2 implemented 2026-11-12 (see "Findings"); preselection, quarantine
+and immich-go validation pending.
 
 ## Problem
 
@@ -128,6 +129,35 @@ After pruning:
    assets, albums and missing-sidecar warnings against the app's own report.
 2. The app's report shows: files kept/quarantined per method, albums preserved (count of
    album folders still containing ≥1 file vs. before), sidecars matched/unmatched.
+
+## Findings from implementing steps 1–2 (2026-11-12)
+
+Built from the filename patterns real exports produce (as documented by importers that handle
+them), with **synthetic** fixtures. Before the production run, check the classifier, matcher and
+pair detection against an anonymized sample of the real Takeout and extend the fixtures.
+
+- **Title alone is ambiguous.** `IMG.jpg` and `IMG(1).jpg` both carry `"title": "IMG.jpg"`, so
+  §C's "by content first" cannot work on its own. Implemented order: sidecar **name** (exact, then
+  truncated at the 51-char cap), then `title`, always requiring the duplicate counter to agree
+  (`IMG.jpg(1).json` / `IMG.jpg.supplemental-metadata(1).json` ↔ `IMG(1).jpg`).
+- **Album folders may hold only sidecars.** Some exports put the photo once in `Photos from YYYY`
+  and only its JSON in the album folder. Problem §2 ("appears twice, byte-identical") is then
+  false. Album membership is recorded either way: a physical album copy is a media file in an
+  album folder; an album-only sidecar is linked to the year-folder photo with method
+  `album_reference` (same name + counter, disambiguated by `photoTakenTime`'s year). Rule §E.1
+  must treat both forms as "in an album". Which form this export uses is still to be verified.
+- **Archive/trash are JSON flags**, not only folders: `archived` / `trashed` are stored per sidecar.
+- **One sidecar, several files.** Edited copies and motion/live videos have no JSON of their own.
+  Kept as in §C (one `mediaFileId` + `matchMethod` per sidecar); the secondary of a pair inherits
+  the primary's sidecar through `mediaPairs` (reported as covered, not as missing). If the original
+  is absent, the edited copy is linked directly (`edited_name`).
+- **Data model** (migration 0008): `takeoutFolders` (kind, year, album title) referenced by
+  `mediaFiles.takeoutFolderId` instead of `folderKind`/`albumName` columns; `sidecars` as §C plus
+  `trashed`/`archived`/`favorited`/`people`/`takeoutFolderId` and kind `unparseable`;
+  `mediaPairs` (`motion` | `edited`).
+- **Pipeline:** indexing runs at the end of the scanning stage; the report (counts, warnings,
+  drill-down lists via `getTakeoutReport`) is shown under the scanning step.
+- Localized folder/suffix names beyond English are best-effort lists.
 
 ## Alternatives Considered
 

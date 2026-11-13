@@ -7,7 +7,9 @@ import { createSignal, signal } from "sigment";
 import { getLogger } from "../services/logger-service";
 import { getSystemHealth as getSystemHealthService, type SystemHealth } from "../services/system-health-service";
 import { navigateTo } from "../state/navigation";
+import type { TakeoutStageStats } from "../services/takeout-service";
 import { errorCategoryLabel } from "./error-labels";
+import { TakeoutReportPanel } from "./TakeoutReport";
 
 const log = getLogger("ui:processing-view");
 
@@ -23,6 +25,7 @@ interface StageStatsEntry {
   videos?: number;
   errorBreakdown?: Record<string, number>;
   timingMs?: Record<string, number>;
+  takeout?: TakeoutStageStats;
   algorithmStats?: {
     sha256: { computed: number; skipped: number; errors: number };
     contentHash: { computed: number; skipped: number; errors: number };
@@ -693,6 +696,7 @@ function PipelineStepComponent(
         timingRow,
         errorRow,
         errorBreakdownRow,
+        step.stage === "scanning" && stats.takeout ? TakeoutReportPanel(stats.takeout) : null,
       );
     } else if (!progress && _state && _state.totalFiles > 0) {
       // After restart: derive file count for completed non-scanning stages from statusCounts

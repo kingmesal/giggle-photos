@@ -117,6 +117,7 @@ erDiagram
         TEXT contentHash "nullable — image content hash"
         TEXT perceptualHash "nullable — pHash"
         TEXT errorMessage "nullable"
+        INTEGER takeoutFolderId FK "nullable — FK → takeoutFolders.id SET NULL"
         INTEGER createdAt "unix timestamp"
         INTEGER updatedAt "unix timestamp"
     }
@@ -180,6 +181,48 @@ erDiagram
         INTEGER createdAt "unix timestamp"
     }
 
+    takeoutFolders {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER scanFolderId FK "FK → scanFolders.id CASCADE"
+        TEXT rootPath "Google Photos directory"
+        TEXT path UK "UNIQUE — folder path"
+        TEXT kind "year | album | special | non_takeout"
+        INTEGER year "nullable — year folders"
+        TEXT albumTitle "nullable — metadata.json title or folder name"
+        INTEGER createdAt "unix timestamp"
+        INTEGER updatedAt "unix timestamp"
+    }
+
+    sidecars {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        INTEGER scanFolderId FK "FK → scanFolders.id CASCADE"
+        INTEGER takeoutFolderId FK "nullable — FK → takeoutFolders.id CASCADE"
+        TEXT path UK "UNIQUE — JSON file path"
+        TEXT kind "media | album_metadata | other | unparseable"
+        TEXT title "nullable — original file name / album title"
+        TEXT description "nullable"
+        INTEGER photoTakenTime "nullable — unix timestamp"
+        REAL geoLat "nullable"
+        REAL geoLon "nullable"
+        REAL geoAlt "nullable"
+        INTEGER trashed "boolean 0/1"
+        INTEGER archived "boolean 0/1"
+        INTEGER favorited "boolean 0/1"
+        TEXT people "JSON array of names"
+        INTEGER mediaFileId FK "nullable — FK → mediaFiles.id SET NULL"
+        TEXT matchMethod "nullable — name_exact | name_truncated | title | edited_name | album_reference"
+        INTEGER createdAt "unix timestamp"
+        INTEGER updatedAt "unix timestamp"
+    }
+
+    mediaPairs {
+        INTEGER id PK "PRIMARY KEY AUTOINCREMENT"
+        TEXT kind "motion | edited"
+        INTEGER primaryFileId FK "FK → mediaFiles.id CASCADE (still / original)"
+        INTEGER secondaryFileId FK "FK → mediaFiles.id CASCADE (video / edited copy)"
+        INTEGER createdAt "unix timestamp"
+    }
+
     scanFolders ||--o{ mediaFiles : "has many"
     mediaFiles ||--o| imageMetadata : "has one (images)"
     mediaFiles ||--o| videoMetadata : "has one (videos)"
@@ -187,18 +230,26 @@ erDiagram
     mediaFiles ||--o{ phashMatches : "mediaFileId1"
     mediaFiles ||--o{ phashMatches : "mediaFileId2"
     mediaFiles ||--o| phashGroupMembers : "has one"
+    scanFolders ||--o{ takeoutFolders : "has many"
+    scanFolders ||--o{ sidecars : "has many"
+    takeoutFolders ||--o{ mediaFiles : "contains"
+    takeoutFolders ||--o{ sidecars : "contains"
+    mediaFiles ||--o{ sidecars : "described by"
+    mediaFiles ||--o{ mediaPairs : "primaryFileId"
+    mediaFiles ||--o{ mediaPairs : "secondaryFileId"
     </pre>
   </div>
 
   <div class="legend">
     <span><code>PK</code> Primary Key</span>
-    <span><code>FK</code> Foreign Key (all CASCADE on delete)</span>
+    <span><code>FK</code> Foreign Key (CASCADE on delete unless marked SET NULL)</span>
     <span><code>UK</code> Unique Constraint</span>
     <span><code>||--o{</code> One-to-Many</span>
     <span><code>||--o|</code> One-to-Zero-or-One</span>
     <span>phashMatches: <code>CHECK mediaFileId1 &lt; mediaFileId2</code> (canonical pair ordering)</span>
     <span>fileDecisions: <code>UNIQUE(mediaFileId, reviewGroupKey)</code></span>
     <span>phashGroupMembers: <code>UNIQUE(mediaFileId)</code>, pre-computed connected components</span>
+    <span>mediaPairs: <code>UNIQUE(primaryFileId, secondaryFileId)</code>; motion pairs are decided together</span>
   </div>
 
   <script type="module">
