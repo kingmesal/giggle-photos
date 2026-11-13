@@ -3,13 +3,14 @@ import { ensureAppDataDir, getAppSettings, loadUserConfig } from "@giggle-photos
 import { DatabaseProvider } from "@giggle-photos/core/db/database-provider";
 import { logger } from "@giggle-photos/core/logging/logger";
 import { initUI } from "@giggle-photos/ui";
-import { loadVersionsFromPackageJson } from "./app-info";
+import { loadBuildVersion, loadVersionsFromPackageJson } from "./app-info";
 import { startFileServer } from "./file-server";
 import { appRPC } from "./rpc";
 import { startBackgroundUpdate } from "./updater";
 import { createMainWindow, setupWindowLifecycle } from "./window";
 
 loadVersionsFromPackageJson();
+await loadBuildVersion();
 ensureAppDataDir();
 
 await DatabaseProvider.getInstance();

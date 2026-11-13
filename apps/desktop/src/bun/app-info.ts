@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getLogger } from "@giggle-photos/core/logging/logger";
+import { Updater } from "electrobun/main";
 
 const log = getLogger("desktop:app-info");
 
@@ -40,6 +41,21 @@ export function loadVersionsFromPackageJson(): void {
     } catch {
       // try next path
     }
+  }
+}
+
+/**
+ * The running build's version, from Electrobun's build info: the same version the updater compares
+ * (electrobun.config.ts sets it from the root package.json). The desktop package.json's own
+ * "version" is not maintained, so it is only a fallback (e.g. when the build info is unavailable).
+ */
+export async function loadBuildVersion(): Promise<void> {
+  try {
+    const info = await Updater.getLocalInfo();
+    if (info.version) cachedAppVersion = info.version;
+    log.debug("Loaded build version", { appVersion: cachedAppVersion, channel: info.channel });
+  } catch (error) {
+    log.debug("Build info unavailable; keeping the package.json version", { error: String(error) });
   }
 }
 
