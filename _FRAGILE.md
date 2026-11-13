@@ -33,20 +33,21 @@ Files: `applyDecisions.ts` (orchestrates), `deletion-plan.ts` (pure safety rules
 
 ---
 
-### Capture dates — `packages/core/src/dates/capture-date-writer.ts`
+### Library Tools — `packages/core/src/library/`
 
-**Risk**: Wrong dates in the sidecars Immich imports; overwriting another app's XMP
+**Risk**: Wrong metadata in the sidecars Immich imports; overwriting another app's XMP; removing
+Google JSON that still holds data (`tool-remove-json.ts`)
 
 **Before touching**:
-- Dates go into `<file>.xmp` sidecars; never write into the original files.
-- Only rewrite a sidecar marked `xmp:CreatorTool="Giggle Photos"`; any other `.xmp` is left alone.
-- Only files whose metadata has no `dateTaken` are candidates, and proposals are recomputed at
-  apply time. Source order is Google JSON > file name > folder; `date-parse.ts` rejects impossible
-  dates and years outside 1990…next year. Add a test for every new name or folder pattern.
-- Writing is the final step: `startCaptureDates` must keep refusing until `captureDatesReadiness`
-  is ready (duplicates reviewed, conflicts resolved, deletions applied).
-- `applyDecisions.ts` moves a removed file's `.xmp` with it; keep that in step with the naming.
-- Run `dates/capture-dates.test.ts` (real files; ExifTool reads the sidecars back) after changes.
+- Never write into original files; sidecars are `<file>.xmp`.
+- Only rewrite a sidecar that has `giggle:Fields` (ours); any other `.xmp` is left alone.
+- Field merging is by source rank (json > embedded > filename > folder, `xmp-fields.ts`); keep the
+  tools order-independent (`library-tools.test.ts` runs them both ways).
+- JSON removal defaults to JSON already converted into our sidecar, checked on disk; it follows
+  the Removal settings (quarantine first).
+- `date-parse.ts` rejects impossible dates and years outside 1990…next year; add a test for every
+  new name or folder pattern. `applyDecisions.ts` moves a removed file's `.xmp` with it.
+- Run `src/library` and `src/dates` tests after changes (ExifTool reads the sidecars back).
 
 ---
 

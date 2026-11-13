@@ -3,6 +3,7 @@ import type { getClipModelStatus } from "@giggle-photos/core/clip/model-service"
 import type { SystemHealth } from "@giggle-photos/core/config/system-health";
 import type { AppSettings } from "@giggle-photos/core/config/user-config";
 import type { FolderDevice } from "@giggle-photos/core/db/folder-owner-device-provider";
+import type { RemoveJsonOptions } from "@giggle-photos/core/library/tool-remove-json";
 import type {
   AutoSelection,
   FileWithReviewContext,
@@ -17,7 +18,7 @@ import type { DeviceKey } from "@giggle-photos/core/zod/folder-owner-device";
 import type { ScanFolder as ScanFolderType, UpdateScanFolder } from "@giggle-photos/core/zod/scan-folder";
 import type { RPCSchema } from "electrobun/main";
 import type { AppInfo } from "./app-info";
-import type { CaptureDateJob, CaptureDateReportResponse } from "./handlers/capture-dates";
+import type { LibraryTool, LibraryToolJob, LibraryToolsPreview } from "./handlers/library-tools";
 import type { QuarantineStatusResponse } from "./handlers/quarantine";
 import type { UpdateState } from "./updater";
 
@@ -82,17 +83,17 @@ export type GigglePhotosRPC = {
         params: { report: string };
         response: ImportCheckResult;
       };
-      getCaptureDateReport: {
+      getLibraryToolsPreview: {
         params: Record<string, never>;
-        response: CaptureDateReportResponse;
+        response: LibraryToolsPreview;
       };
-      startCaptureDates: {
-        params: Record<string, never>;
-        response: CaptureDateJob;
+      startLibraryTool: {
+        params: { tool: LibraryTool; options?: RemoveJsonOptions };
+        response: LibraryToolJob;
       };
-      getCaptureDateJob: {
+      getLibraryToolJob: {
         params: Record<string, never>;
-        response: CaptureDateJob;
+        response: LibraryToolJob;
       };
       getUpdateState: {
         params: Record<string, never>;

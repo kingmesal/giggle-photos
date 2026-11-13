@@ -8,10 +8,10 @@ import type { ReviewSummary } from "@giggle-photos/core/review/review-queries";
 import {
   getLogger,
   initAppInfoService,
-  initCaptureDatesService,
   initClipService,
   initDatabaseService,
   initFoldersService,
+  initLibraryToolsService,
   initLoggerService,
   initLogsService,
   initOwnerDevicesService,
@@ -133,12 +133,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const dateRequests = electrobun.rpc?.request;
-  if (dateRequests?.getCaptureDateReport && dateRequests.startCaptureDates && dateRequests.getCaptureDateJob) {
-    initCaptureDatesService({
-      getCaptureDateReport: () => dateRequests.getCaptureDateReport({}),
-      startCaptureDates: () => dateRequests.startCaptureDates({}),
-      getCaptureDateJob: () => dateRequests.getCaptureDateJob({}),
+  const toolRequests = electrobun.rpc?.request;
+  if (toolRequests?.getLibraryToolsPreview && toolRequests.startLibraryTool && toolRequests.getLibraryToolJob) {
+    initLibraryToolsService({
+      getLibraryToolsPreview: () => toolRequests.getLibraryToolsPreview({}),
+      startLibraryTool: (tool, options) => toolRequests.startLibraryTool({ tool, options }),
+      getLibraryToolJob: () => toolRequests.getLibraryToolJob({}),
     });
   }
 

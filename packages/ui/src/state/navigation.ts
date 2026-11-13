@@ -5,7 +5,7 @@
 import { createStore, useStore } from "../external/store";
 
 /** Available views in the application */
-export type ViewName = "processing" | "duplicates" | "dates" | "folders" | "settings";
+export type ViewName = "processing" | "duplicates" | "tools" | "folders" | "settings";
 
 const view = createStore<ViewName>("folders");
 
@@ -33,6 +33,6 @@ export const navItems: NavItem[] = [
   { id: "folders", label: "Folders" },
   { id: "processing", label: "Processing" },
   { id: "duplicates", label: "Duplicates" },
-  { id: "dates", label: "Capture Dates" },
+  { id: "tools", label: "Library Tools" },
 ];
 export const settingsNavItem: NavItem = { id: "settings", label: "Settings" };

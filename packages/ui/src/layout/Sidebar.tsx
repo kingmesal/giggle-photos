@@ -1,4 +1,4 @@
-import { CalendarClock, CircleCheck, Copy, Folders, Images, ListChecks, Moon, Settings, Sun } from "lucide-react";
+import { CircleCheck, Copy, Folders, Images, ListChecks, Moon, Settings, Sun, Wrench } from "lucide-react";
 import type { ReactNode } from "react";
 import { navItems, navigateTo, settingsNavItem, useCurrentView, type ViewName } from "../state/navigation";
 import { toggleTheme, useThemeMode } from "../state/theme";
@@ -8,7 +8,7 @@ const NAV_ICONS: Record<ViewName, ReactNode> = {
   folders: <Folders size={18} />,
   processing: <ListChecks size={18} />,
   duplicates: <Copy size={18} />,
-  dates: <CalendarClock size={18} />,
+  tools: <Wrench size={18} />,
   settings: <Settings size={18} />,
 };
 

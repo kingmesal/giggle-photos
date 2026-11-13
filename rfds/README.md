@@ -56,7 +56,8 @@ Create an RFD for:
 | [RFD-003](RFD-003-google-takeout-sidecars-and-albums.md) | Google Takeout: JSON sidecars, albums, motion photos | Implemented | — |
 | [RFD-004](RFD-004-react-ui-rewrite.md) | React UI rewrite on Electrobun 2.x, no `useEffect` | Implemented | RFD-001 |
 | [RFD-005](RFD-005-folder-owner-devices.md) | Folder owner devices: keep the copy in the phone owner's folder | Implemented | RFD-003, RFD-004 |
-| [RFD-006](RFD-006-capture-dates.md) | Capture dates from Google JSON, file names and dated folders | Implemented | RFD-003 |
+| [RFD-006](RFD-006-capture-dates.md) | Capture dates from Google JSON, file names and dated folders | Superseded by RFD-007 | RFD-003 |
+| [RFD-007](RFD-007-library-tools.md) | Library Tools: XMP sidecars and Google JSON cleanup | Implemented | RFD-003, RFD-006 |
 
 Suggested order: RFD-001 → RFD-002 (pipeline refactor first) and RFD-003 in parallel →
 RFD-004. The production dedup run waits for all four, on a fresh Google Takeout.

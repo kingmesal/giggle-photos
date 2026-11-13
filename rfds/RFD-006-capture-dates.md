@@ -1,6 +1,10 @@
 # RFD-006: Capture dates from Google JSON, file names and dated folders
 
 ## Status
+**Superseded by RFD-007 (Library Tools)** for writing: the date parsing and source rules below
+still apply; the writer, the Capture Dates screen and the "final step" lock were replaced by
+Library Tools, which run any time (maintainer, 2026-11-13).
+
 Implemented 2026-11-13. Decisions by the maintainer: **XMP sidecars** (originals untouched; this
 replaced a first version that wrote into the files with ExifTool); year-only dates become
 **July 1**; **review list, then apply**; **the final step, after duplicate checks**.

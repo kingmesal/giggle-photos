@@ -1,7 +1,6 @@
 import { BrowserView } from "electrobun/main";
 import { getFileServerPort } from "./file-server";
 import { getAppInfo } from "./handlers/app-info";
-import { getCaptureDateJob, getCaptureDateReport, startCaptureDates } from "./handlers/capture-dates";
 import { getClipModelStatus, importClipModelFile, retryClipModelSetup } from "./handlers/clip";
 import { getDatabaseInfo, openDatabaseFolder, resetApplication } from "./handlers/database";
 import {
@@ -13,6 +12,7 @@ import {
   showFolderPicker,
   updateFolder,
 } from "./handlers/folders";
+import { getLibraryToolJob, getLibraryToolsPreview, startLibraryTool } from "./handlers/library-tools";
 import { log } from "./handlers/log";
 import { getLogsPathHandler, selectLogsFolder } from "./handlers/logs";
 import { listFolderDevices, setFolderOwnerDevices } from "./handlers/owner-devices";
@@ -55,9 +55,9 @@ export const appRPC = BrowserView.defineRPC<GigglePhotosRPC>({
       getSystemHealth,
       getTakeoutReport,
       compareImmichGoReport,
-      getCaptureDateReport,
-      startCaptureDates,
-      getCaptureDateJob,
+      getLibraryToolsPreview,
+      startLibraryTool,
+      getLibraryToolJob,
       getUpdateState: async () => getUpdateState(),
       restartToUpdate,
       retryUpdate: async () => {
