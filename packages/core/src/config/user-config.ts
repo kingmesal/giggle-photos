@@ -38,6 +38,10 @@ export const AppSettings = z.object({
   similarityThreshold: z.number().min(0).max(10).default(5),
   parallelWorkers: z.number().int().min(1).max(16).default(4),
   moveToTrash: z.boolean().default(true),
+  // Quarantine instead of deleting (RFD-003 §F): removed files move here, mirroring their path,
+  // and can be restored. Empty path = <app data>/quarantine. Takes precedence over moveToTrash.
+  quarantineEnabled: z.boolean().default(true),
+  quarantinePath: z.string().default(""),
 
   // CLIP visual similarity (RFD-002). Distances are cosine distances (0 = identical). Defaults
   // come from 5 stock photos: starting values, to be calibrated on the real library.

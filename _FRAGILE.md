@@ -4,22 +4,31 @@ Review before modifying any code listed here.
 
 ## Critical (Red)
 
-### File Deletion — `packages/core/src/actions/applyDecisions.ts`
+### File Deletion — `packages/core/src/actions/`
 
-**Risk**: Permanent data loss, no undo
+Files: `applyDecisions.ts` (orchestrates), `deletion-plan.ts` (pure safety rules),
+`plan-loader.ts` (loads decisions, current group members, pairs, sidecars), `quarantine.ts`,
+`file-removal.ts` (trash / permanent delete). Preselection: `review/preselect.ts`.
 
-**Safety measures implemented**:
-- Always verify keepFileId before deletion (never delete the file marked to keep)
-- Check file exists on disk before attempting deletion
-- Log all operations with timestamps
-- Support dryRun=true to verify behavior before actual deletion
-- Support moveToTrash option (falls back to permanent delete if trash unavailable)
-- Database records removed only after successful file deletion
+**Risk**: Permanent data loss; photos losing their album or JSON on import
+
+**Safety measures implemented** (each has a test in `deletion-plan.test.ts` /
+`applyDecisions.test.ts`):
+- A file is removed only with a delete decision and no keep decision in any group
+- Never the last copy: every group keeps at least one survivor (also across motion pairs: a
+  partner that is the last copy of its own content is spared, and so is its still)
+- Motion pairs move together; if the partner is kept, neither is removed (never split a pair)
+- A file's own sidecars go with it, unless a remaining edited copy / motion video inherits them
+- Files missing on disk are skipped, never "removed"
+- Dry run returns the full plan (what, how, and every refusal with its reason); the UI shows it
+  before the confirm button is enabled
+- Quarantine (default) moves files to `<quarantine>/<path below the scan folder>`, never
+  overwrites, logs to `quarantine-manifest.jsonl`; `restoreQuarantine` undoes it
+- Database records removed only after the file was removed
 
 **Before touching**:
-- Test with locked files, read-only dirs, permission errors
-- Use transactions for related DB updates
-- Verify comprehensive error logging
+- Add a test for any rule you change, in the pure planner first
+- Test with read-only folders, missing files, cross-device moves
 - Run with dryRun=true first to verify expected behavior
 
 ---

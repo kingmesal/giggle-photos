@@ -178,7 +178,7 @@ export const reviewService = {
     // Fallback to empty mock data for dev preview
     return {
       files: [],
-      suggestion: { fileId: 0, reason: "No files" },
+      suggestion: { fileId: 0, keepFileIds: [], reason: "No files" },
     };
   },
 
@@ -245,7 +245,15 @@ export const reviewService = {
 
     // Fallback for dev preview
     log.debug("applyDeletions (mock)", params);
-    return { success: 0, failed: 0, skipped: 0, errors: [] };
+    return {
+      success: 0,
+      failed: 0,
+      skipped: 0,
+      errors: [],
+      mode: "delete",
+      sidecarsRemoved: 0,
+      plan: { remove: [], skipped: [] },
+    };
   },
 
   /**

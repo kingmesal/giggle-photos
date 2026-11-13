@@ -6,6 +6,7 @@
 
 import { createSignal, signal } from "sigment";
 import { getLogger } from "../services/logger-service";
+import type { ApplyDecisionResult } from "../services/processing";
 import {
   type AutoSelection,
   type FileDecisionAction,
@@ -198,6 +199,8 @@ const [getShowApplyConfirm, setShowApplyConfirm] = signal<boolean>(false);
 
 /** Whether trash is available for the apply-deletions dialog messaging */
 const [getApplyUseTrash, setApplyUseTrash] = signal<boolean>(false);
+/** Dry-run plan shown in the confirm dialog before anything is removed (RFD-003: dry run first). */
+const [getApplyPreview, setApplyPreview] = signal<ApplyDecisionResult | null>(null);
 
 /** Whether the user has manually modified decisions for the current group */
 let userModifiedDecisions = false;
@@ -213,6 +216,7 @@ export {
   getActionLoading,
   getActiveCategory,
   getAllowDeleteAll,
+  getApplyPreview,
   getApplyUseTrash,
   getCompareFile,
   getCompareThisFileId,
@@ -559,14 +563,14 @@ async function loadGroupDetails(groupKey: string): Promise<void> {
       }
     }
 
-    // If no existing decisions, pre-fill from auto-suggestion
+    // If no existing decisions, pre-fill from auto-suggestion: every suggested keep (several when
+    // all album copies are kept, RFD-003), delete for the rest. No suggestion (clip): leave undecided.
+    const keepIds = new Set(
+      result.suggestion.keepFileIds?.length ? result.suggestion.keepFileIds : [result.suggestion.fileId],
+    );
     if (!hasExistingDecisions && result.suggestion.fileId > 0) {
       for (const f of result.files) {
-        if (f.file.id === result.suggestion.fileId) {
-          decisions.set(f.file.id, "keep");
-        } else {
-          decisions.set(f.file.id, "delete");
-        }
+        decisions.set(f.file.id, keepIds.has(f.file.id) ? "keep" : "delete");
       }
     }
 
@@ -897,7 +901,16 @@ export async function handleApplyDeletions(): Promise<void> {
     setApplyUseTrash(false);
   }
 
+  // Dry run first: show exactly what would be removed (and what is refused) before confirming.
+  setApplyPreview(null);
   setShowApplyConfirm(true);
+  try {
+    setApplyPreview(await reviewService.applyDeletions({ dryRun: true, moveToTrash: getApplyUseTrash() }));
+  } catch (error) {
+    log.error("Dry run failed", error);
+    setShowApplyConfirm(false);
+    setError(error instanceof Error ? error.message : "Could not prepare the deletion plan");
+  }
 }
 
 /** Cancel the apply-deletions dialog */

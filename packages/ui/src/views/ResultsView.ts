@@ -9,6 +9,7 @@
 import { createSignal, signal } from "sigment";
 import { getLogger } from "../services/logger-service";
 import { type ReviewRPC, reviewService } from "../services/processing";
+import { ApplyPlanSummary } from "./ApplyPlanSummary";
 import { ComparisonModal } from "./ComparisonModal";
 import { DuplicateGroupReview } from "./DuplicateGroupReview";
 import {
@@ -21,6 +22,7 @@ import {
   type GridSize,
   getActionLoading,
   getActiveCategory,
+  getApplyPreview,
   getApplyUseTrash,
   getCurrentGroupIndex,
   getError,
@@ -255,10 +257,16 @@ function ApplyConfirmDialog() {
   return () => {
     if (!getShowApplyConfirm()) return div();
 
-    const summary = getSummary();
-    const deleteCount = summary.decidedDelete;
-    const useTrash = getApplyUseTrash();
-    const fileWord = deleteCount === 1 ? "file" : "files";
+    const preview = getApplyPreview();
+    const mode = preview?.mode ?? (getApplyUseTrash() ? "trash" : "delete");
+    const useTrash = mode !== "delete"; // quarantine and trash are both recoverable
+    const title = { quarantine: "Move to quarantine?", trash: "Move to Trash?", delete: "Permanently Delete?" }[mode];
+    const subtitle = {
+      quarantine: "Files can be restored from the quarantine folder",
+      trash: "Files can be restored from your trash",
+      delete: "This action cannot be undone",
+    }[mode];
+    const canConfirm = preview !== null && preview.success > 0;
 
     return div(
       {
@@ -289,24 +297,13 @@ function ApplyConfirmDialog() {
             ),
             div(
               {},
-              h3({ class: "text-lg font-semibold text-fg" }, useTrash ? "Move to Trash?" : "Permanently Delete?"),
-              p(
-                { class: "text-sm text-fg-muted mt-0.5" },
-                useTrash ? "Files can be restored from your trash" : "This action cannot be undone",
-              ),
+              h3({ class: "text-lg font-semibold text-fg" }, title),
+              p({ class: "text-sm text-fg-muted mt-0.5" }, subtitle),
             ),
           ),
         ),
         // Content
-        div(
-          { class: "px-6 py-4" },
-          p(
-            { class: "text-sm text-fg-3" },
-            useTrash
-              ? `${deleteCount} ${fileWord} marked for deletion will be moved to your system trash.`
-              : `${deleteCount} ${fileWord} marked for deletion will be permanently removed from disk.`,
-          ),
-        ),
+        div({ class: "px-6 py-4" }, ApplyPlanSummary(preview)),
         // Footer
         div(
           { class: "px-6 py-4 border-t border-edge flex justify-end gap-3" },
@@ -319,13 +316,16 @@ function ApplyConfirmDialog() {
           ),
           button(
             {
-              class: `px-4 py-2 rounded-lg text-sm font-medium text-white ${
+              class: `px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 ${
                 useTrash ? "bg-amber-600 hover:bg-amber-500" : "bg-red-600 hover:bg-red-500"
               }`,
-              onclick: () => confirmApplyDeletions(),
+              disabled: !canConfirm,
+              onclick: () => {
+                if (canConfirm) void confirmApplyDeletions();
+              },
             },
-            i({ class: `fadr ${useTrash ? "fa-trash" : "fa-trash"} mr-2` }),
-            useTrash ? "Move to Trash" : "Delete Files",
+            i({ class: "fadr fa-trash mr-2" }),
+            { quarantine: "Move to Quarantine", trash: "Move to Trash", delete: "Delete Files" }[mode],
           ),
         ),
       ),

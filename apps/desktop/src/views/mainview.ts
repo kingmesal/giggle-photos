@@ -618,13 +618,7 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       applyDeletions: async (params) => {
         try {
-          const result = await applyDeletionsRpc(params ?? {});
-          return result as {
-            success: number;
-            failed: number;
-            skipped: number;
-            errors: Array<{ fileId: number; path: string; error: string }>;
-          };
+          return await applyDeletionsRpc(params ?? {});
         } catch (error) {
           log.error("Failed to apply deletions", error);
           throw error;

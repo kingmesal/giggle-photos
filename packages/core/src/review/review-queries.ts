@@ -5,6 +5,7 @@ import type { FileDecision, FileDecisionMethod } from "../zod/file-decision";
 import type { ImageMetadata } from "../zod/image-metadata";
 import type { MediaFile } from "../zod/media-file";
 import type { VideoMetadata } from "../zod/video-metadata";
+import { computeAutoSelection } from "./auto-selection";
 
 const perfLog = getLogger("performance");
 
@@ -60,7 +61,10 @@ export interface FileWithReviewContext {
  * Auto-selection result for a group.
  */
 export interface AutoSelection {
+  /** Primary file to keep (first of keepFileIds), 0 when nothing is preselected. */
   fileId: number;
+  /** Every file to preselect as keep (several when all album copies are kept; empty for clip). */
+  keepFileIds: number[];
   reason: string;
 }
 
@@ -84,74 +88,6 @@ export interface ReviewSummary {
   phashSimilarPairs: number;
   /** Number of files with conflicting keep/delete decisions across groups */
   conflictCount: number;
-}
-
-/**
- * Compute auto-selection: which file to keep in a group.
- *
- * Algorithm:
- * 1. Sort by folder priority ASC (1 = highest)
- * 2. Tiebreak by dateTaken ASC (oldest wins — the original)
- * 3. Tiebreak by file.id ASC (stable fallback)
- */
-function computeAutoSelection(filesWithContext: FileWithReviewContext[]): AutoSelection {
-  if (filesWithContext.length === 0) {
-    throw new Error("Cannot compute auto-selection for empty file list");
-  }
-
-  const sorted = [...filesWithContext].sort((a, b) => {
-    // Priority ASC (lower = higher priority)
-    if (a.folderPriority !== b.folderPriority) {
-      return a.folderPriority - b.folderPriority;
-    }
-
-    // Date taken ASC (older = original)
-    const aDate = getDateTaken(a);
-    const bDate = getDateTaken(b);
-    if (aDate && bDate) {
-      const diff = aDate.getTime() - bDate.getTime();
-      if (diff !== 0) return diff;
-    }
-    if (aDate && !bDate) return -1;
-    if (!aDate && bDate) return 1;
-
-    // File ID ASC (stable fallback)
-    return a.file.id - b.file.id;
-  });
-
-  // We checked for empty array above, so sorted[0] is guaranteed to exist
-  const winner = sorted[0] as FileWithReviewContext;
-
-  let reason = "Stable fallback (lowest file ID)";
-  if (winner.folderPriority < (sorted[1]?.folderPriority ?? winner.folderPriority)) {
-    reason = "Higher folder priority";
-  } else {
-    const winnerDate = getDateTaken(winner);
-    const runnerUp = sorted[1];
-    const runnerUpDate = runnerUp ? getDateTaken(runnerUp) : null;
-    if (winnerDate && runnerUpDate && winnerDate.getTime() < runnerUpDate.getTime()) {
-      reason = "Oldest date taken";
-    }
-  }
-
-  return { fileId: winner.file.id, reason };
-}
-
-/**
- * Extract dateTaken from metadata if available.
- */
-function getDateTaken(ctx: FileWithReviewContext): Date | null {
-  if (!ctx.metadata) return null;
-  // ImageMetadata has dateTaken, VideoMetadata has creationTime
-  if ("dateTaken" in ctx.metadata && ctx.metadata.dateTaken) {
-    return ctx.metadata.dateTaken instanceof Date ? ctx.metadata.dateTaken : new Date(ctx.metadata.dateTaken as string);
-  }
-  if ("creationTime" in ctx.metadata && ctx.metadata.creationTime) {
-    return ctx.metadata.creationTime instanceof Date
-      ? ctx.metadata.creationTime
-      : new Date(ctx.metadata.creationTime as string);
-  }
-  return null;
 }
 
 /**
@@ -254,7 +190,7 @@ async function getHashBasedGroups(
 
     // Build file contexts for auto-selection
     const filesWithContext = await buildFileContexts(dbProvider, activeFiles, groupKey);
-    const suggestion = computeAutoSelection(filesWithContext);
+    const suggestion = await computeAutoSelection(dbProvider.getTakeoutProvider(), method, filesWithContext);
 
     groups.push({
       groupKey,
@@ -429,7 +365,7 @@ async function getPhashGroups(
     // Build file contexts for auto-selection
     const activeFiles = sortedIds.map((id) => ({ id, size: fileSizeMap.get(id) ?? 0 }));
     const filesWithContext = await buildFileContexts(dbProvider, activeFiles, groupKey);
-    const suggestion = computeAutoSelection(filesWithContext);
+    const suggestion = await computeAutoSelection(dbProvider.getTakeoutProvider(), "phash", filesWithContext);
 
     groups.push({
       groupKey,
@@ -640,7 +576,7 @@ export async function getLogicalGroupFiles(params: {
     files.push(ctx);
   }
 
-  const suggestion = files.length > 0 ? computeAutoSelection(files) : { fileId: 0, reason: "No files" };
+  const suggestion = await computeAutoSelection(dbProvider.getTakeoutProvider(), method, files);
 
   perfLog.info(
     `getLogicalGroupFiles TOTAL: ${(performance.now() - tTotal).toFixed(1)}ms (${files.length} files, method=${method})`,

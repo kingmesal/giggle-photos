@@ -1,5 +1,7 @@
 import type { ApplyDecisionResult } from "@giggle-photos/core/actions/applyDecisions";
 import { applyDeletions } from "@giggle-photos/core/actions/applyDecisions";
+import { resolveQuarantineRoot } from "@giggle-photos/core/actions/quarantine";
+import { getAppSettings } from "@giggle-photos/core/config/user-config";
 import { DatabaseProvider } from "@giggle-photos/core/db/database-provider";
 import { getLogger } from "@giggle-photos/core/logging/logger";
 import {
@@ -148,9 +150,11 @@ export async function applyDeletionsHandler(params?: {
   log.debug("applyDeletions called", params);
 
   try {
+    // Quarantine (when enabled in settings) takes precedence over trash / permanent delete.
     return await applyDeletions({
       dryRun: params?.dryRun ?? false,
       moveToTrash: params?.moveToTrash ?? false,
+      quarantineRoot: resolveQuarantineRoot(getAppSettings()),
     });
   } catch (error) {
     log.error("Failed to apply deletions", error);

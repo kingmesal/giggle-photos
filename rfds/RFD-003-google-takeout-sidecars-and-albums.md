@@ -1,8 +1,8 @@
 # RFD-003: Google Takeout Awareness — JSON Sidecars, Albums, Motion Photos
 
 ## Status
-Draft — 2026-11-12. Steps 1–2 implemented 2026-11-12 (see "Findings"); preselection, quarantine
-and immich-go validation pending.
+Draft — 2026-11-12. Steps 1–4 implemented 2026-11-12 (see "Findings"); immich-go validation (step 5)
+pending.
 
 ## Problem
 
@@ -158,6 +158,21 @@ pair detection against an anonymized sample of the real Takeout and extend the f
 - **Pipeline:** indexing runs at the end of the scanning stage; the report (counts, warnings,
   drill-down lists via `getTakeoutReport`) is shown under the scanning step.
 - Localized folder/suffix names beyond English are best-effort lists.
+
+### Preselection and quarantine (steps 3–4), 2026-11-12
+
+- `review/preselect.ts` implements §E as written, plus: a copy in Trash/Archive ranks last; a
+  year-folder photo referenced by an album-only sidecar counts as "in an album" (E.1). Suggestions
+  carry `keepFileIds` (several keeps); the review screen pre-marks all of them.
+- Folder priority now ranks *after* the Takeout rules (it used to decide first).
+- Apply: `deletion-plan.ts` enforces never-the-last-copy (per group, and for a motion partner's own
+  exact-copy group), never splitting a motion pair, and sidecars-follow-their-file. These hold even
+  when `allowDeleteAll` is on: a group can no longer be emptied completely.
+- Quarantine is the default (`quarantineEnabled`, `quarantinePath` = `<app data>/quarantine`);
+  paths mirror the location below the scan folder; `quarantine-manifest.jsonl` + `restoreQuarantine`
+  undo it (no UI button for restore yet).
+- The apply dialog runs a dry run first and shows the plan before the confirm button is enabled.
+- Step 5 (immich-go dry-run validation) remains.
 
 ## Alternatives Considered
 

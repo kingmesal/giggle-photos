@@ -11,6 +11,14 @@ export interface TakeoutIndexInput {
   pairs: NewMediaPair[];
 }
 
+export interface PreselectContext {
+  folderKind: "year" | "album" | "special" | null;
+  albumReferenced: boolean;
+  hasSidecar: boolean;
+  motionPartnerId: number | null;
+  editedPartnerId: number | null;
+}
+
 export interface TakeoutSummary {
   folders: { year: number; album: number; special: number };
   sidecars: { media: number; album_metadata: number; other: number; unparseable: number };
@@ -83,6 +91,11 @@ export class TakeoutProvider {
     return rows.map((row) => Sidecar.parse({ ...row, people: JSON.parse(row.people) }));
   }
 
+  /** Remove sidecar rows whose files were removed with their media (quarantine/delete). */
+  async deleteSidecars(ids: number[]): Promise<void> {
+    for (const batch of chunks(ids)) await this.db.deleteFrom("sidecars").where("id", "in", batch).execute();
+  }
+
   async getPairsForMedia(mediaFileId: number): Promise<MediaPair[]> {
     const rows = await this.db
       .selectFrom("mediaPairs")
@@ -90,6 +103,66 @@ export class TakeoutProvider {
       .where((eb) => eb.or([eb("primaryFileId", "=", mediaFileId), eb("secondaryFileId", "=", mediaFileId)]))
       .execute();
     return rows.map((row) => MediaPair.parse(row));
+  }
+
+  /**
+   * Per-file Takeout context for preselection (RFD-003 §E): folder kind, album membership by
+   * reference, sidecar (own or inherited through a pair), and pair partners. Files outside a
+   * Takeout get folderKind null.
+   */
+  async getPreselectContext(mediaFileIds: number[]): Promise<Map<number, PreselectContext>> {
+    const out = new Map<number, PreselectContext>();
+    if (mediaFileIds.length === 0) return out;
+    const folders = await this.db
+      .selectFrom("mediaFiles as m")
+      .leftJoin("takeoutFolders as f", "f.id", "m.takeoutFolderId")
+      .select(["m.id", "f.kind"])
+      .where("m.id", "in", mediaFileIds)
+      .execute();
+    const pairs = await this.db
+      .selectFrom("mediaPairs")
+      .select(["kind", "primaryFileId", "secondaryFileId"])
+      .where((eb) => eb.or([eb("primaryFileId", "in", mediaFileIds), eb("secondaryFileId", "in", mediaFileIds)]))
+      .execute();
+    const related = [
+      ...new Set([...mediaFileIds, ...pairs.flatMap((p) => [Number(p.primaryFileId), Number(p.secondaryFileId)])]),
+    ];
+    const sidecars = await this.db
+      .selectFrom("sidecars")
+      .select(["mediaFileId", "matchMethod"])
+      .where("mediaFileId", "in", related)
+      .execute();
+    const ownSidecar = new Set(
+      sidecars.filter((s) => s.matchMethod !== "album_reference").map((s) => Number(s.mediaFileId)),
+    );
+    const albumReferenced = new Set(
+      sidecars.filter((s) => s.matchMethod === "album_reference").map((s) => Number(s.mediaFileId)),
+    );
+
+    for (const row of folders) {
+      const id = Number(row.id);
+      const kind = row.kind === "year" || row.kind === "album" || row.kind === "special" ? row.kind : null;
+      out.set(id, {
+        folderKind: kind,
+        albumReferenced: albumReferenced.has(id),
+        hasSidecar: ownSidecar.has(id),
+        motionPartnerId: null,
+        editedPartnerId: null,
+      });
+    }
+    for (const p of pairs) {
+      const primary = Number(p.primaryFileId);
+      const secondary = Number(p.secondaryFileId);
+      const field = p.kind === "motion" ? "motionPartnerId" : "editedPartnerId";
+      const a = out.get(primary);
+      const b = out.get(secondary);
+      if (a) a[field] = secondary;
+      if (b) {
+        b[field] = primary;
+        if (ownSidecar.has(primary)) b.hasSidecar = true; // inherits the primary's JSON
+      }
+    }
+    return out;
   }
 
   /** Media in Takeout folders with no sidecar of their own and none inherited through a pair. */

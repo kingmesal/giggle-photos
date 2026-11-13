@@ -1,306 +1,148 @@
-// FRAGILE: See _FRAGILE.md - This permanently deletes files
-import { existsSync } from "node:fs";
-import { unlink } from "node:fs/promises";
-import { getTrashAvailability } from "../config/user-config";
+// FRAGILE: See _FRAGILE.md - This removes files from the user's library
+/**
+ * Apply the user's delete decisions (RFD-003 §E.5, §F).
+ *
+ * 1. loadPlanInput + planDeletions decide exactly what to remove (never a kept file, never the last
+ *    copy of a group, never half a motion pair, sidecars along with their own file) and why anything
+ *    is refused. A dry run returns that plan and changes nothing — run it first.
+ * 2. Each planned file is removed in one of three ways: moved into the quarantine folder (default
+ *    for the Takeout run: undoable, keeps the Takeout layout), moved to the system trash, or deleted
+ *    permanently. Its own sidecars follow the same way, only after the file itself succeeded.
+ * 3. Database records are removed only after the file was removed.
+ */
 import { DatabaseProvider } from "../db/database-provider";
 import { getLogger } from "../logging/logger";
+import { type DeletionPlan, type PlannedRemoval, planDeletions } from "./deletion-plan";
+import { deleteFile } from "./file-removal";
+import { loadPlanInput } from "./plan-loader";
+import { quarantineFile } from "./quarantine";
 
 const log = getLogger("core:actions");
 
-import type { MediaFile } from "../zod/media-file";
-
-/**
- * Options for applying deletion decisions.
- */
 export interface ApplyDecisionOptions {
-  /** If true, move to trash instead of permanent delete (default: false) */
+  /** Move removed files (and their sidecars) here instead of deleting them. Takes precedence. */
+  quarantineRoot?: string | null;
+  /** If true (and no quarantine), move to the system trash instead of deleting permanently. */
   moveToTrash?: boolean;
-  /** If true, don't actually delete, just return what would be deleted */
+  /** If true, change nothing: return the plan of what would happen. */
   dryRun?: boolean;
-  /** Progress callback for UI updates */
   onProgress?: (completed: number, total: number, currentFile: string) => void;
 }
 
-/**
- * Result of applying deletion decisions.
- */
 export interface ApplyDecisionResult {
-  /** Files successfully deleted */
+  /** Files removed (or, in a dry run, that would be removed). */
   success: number;
-  /** Files that failed to delete */
   failed: number;
-  /** Files skipped (not found, is the keep file, etc.) */
+  /** Files refused by the plan's safety rules or missing on disk. */
   skipped: number;
-  /** Detailed error information for failed deletions */
   errors: Array<{ fileId: number; path: string; error: string }>;
+  /** How files were (or would be) removed. */
+  mode: "quarantine" | "trash" | "delete";
+  sidecarsRemoved: number;
+  /** The plan: what is removed and why anything was refused. */
+  plan: {
+    remove: { fileId: number; path: string; because: PlannedRemoval["because"]; sidecars: number }[];
+    skipped: DeletionPlan["skipped"];
+  };
 }
 
-/**
- * Validation result for a file deletion.
- */
-interface ValidationResult {
-  valid: boolean;
-  reason?: string;
-}
-
-/**
- * Validates whether a file can be safely deleted.
- * SAFETY: Never deletes a file that has a "keep" decision.
- */
-function validateFileDeletion(file: MediaFile): ValidationResult {
-  // Check if file still exists on disk
-  if (!existsSync(file.path)) {
-    return { valid: false, reason: "File does not exist on disk" };
-  }
-
-  return { valid: true };
-}
-
-/**
- * Attempts to move a file to the system trash using the best available command.
- * Uses `getTrashAvailability()` to determine which command to use:
- *   Linux:   `gio trash <file>` or `trash <file>`
- *   macOS:   `trash <file>` or `gio trash <file>`
- *   Windows: PowerShell + Microsoft.VisualBasic.FileIO → Recycle Bin
- *
- * @returns true if moved to trash, false if no trash command available or it failed
- */
-async function moveToTrash(filePath: string): Promise<boolean> {
-  const { available, command } = getTrashAvailability();
-  if (!available || !command) return false;
-
-  try {
-    const { spawn } = await import("node:child_process");
-    let bin: string;
-    let args: string[];
-
-    if (command === "powershell") {
-      // Windows: use PowerShell to send to Recycle Bin via VisualBasic API
-      const escaped = filePath.replace(/'/g, "''");
-      bin = "powershell";
-      args = [
-        "-NoProfile",
-        "-Command",
-        `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('${escaped}', 'OnlyErrorDialogs', 'SendToRecycleBin')`,
-      ];
-    } else if (command === "gio trash") {
-      bin = "gio";
-      args = ["trash", filePath];
-    } else {
-      bin = "trash";
-      args = [filePath];
+async function removeOne(
+  path: string,
+  kind: "media" | "sidecar",
+  mode: ApplyDecisionResult["mode"],
+  scanFolderPath: string,
+  quarantineRoot: string | null,
+) {
+  if (mode === "quarantine") {
+    try {
+      await quarantineFile(quarantineRoot as string, scanFolderPath, path, kind);
+      log.info("Moved to quarantine", { path, kind, timestamp: new Date().toISOString() });
+      return { success: true as const };
+    } catch (error) {
+      return { success: false as const, error: error instanceof Error ? error.message : String(error) };
     }
-
-    const proc = spawn(bin, args, { stdio: "ignore" });
-
-    return new Promise((resolve) => {
-      proc.on("error", () => resolve(false));
-      proc.on("close", (code) => resolve(code === 0));
-    });
-  } catch {
-    return false;
   }
+  return deleteFile(path, mode === "trash", false);
 }
 
-/**
- * Deletes a single file, either to trash or permanently.
- * Logs the operation with timestamp.
- */
-async function deleteFile(
-  filePath: string,
-  useTrash: boolean,
-  dryRun: boolean,
-): Promise<{ success: boolean; error?: string }> {
-  if (dryRun) {
-    log.info("[DRY RUN] Would delete file", { path: filePath, useTrash });
-    return { success: true };
-  }
+/** Providers used (DatabaseProvider in the app; real providers over a test database in tests). */
+export type ApplyDb = Parameters<typeof loadPlanInput>[0];
 
-  try {
-    if (useTrash) {
-      const movedToTrash = await moveToTrash(filePath);
-      if (movedToTrash) {
-        log.info("File moved to trash", {
-          path: filePath,
-          timestamp: new Date().toISOString(),
-        });
-        return { success: true };
-      }
-      // Fall back to permanent deletion
-      log.warn("Trash not available, falling back to permanent deletion", {
-        path: filePath,
-      });
-    }
-
-    await unlink(filePath);
-    log.info("File permanently deleted", {
-      path: filePath,
-      timestamp: new Date().toISOString(),
-    });
-    return { success: true };
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    log.error("Failed to delete file", {
-      path: filePath,
-      error: errorMessage,
-      timestamp: new Date().toISOString(),
-    });
-    return { success: false, error: errorMessage };
-  }
-}
-
-/**
- * Applies deletion decisions based on fileDecisions table.
- *
- * Queries all files with action = "delete" in fileDecisions,
- * deletes them from disk, and removes the mediaFile record
- * (which cascades to phashMatches, fileDecisions, etc.).
- *
- * SAFETY MEASURES:
- * - Never deletes a file with action = "keep"
- * - Cross-checks that the file has a "delete" decision before proceeding
- * - Verifies file exists before deletion
- * - Logs all operations with timestamps
- * - Supports dry run mode for testing
- *
- * @param options - Options controlling deletion behavior
- * @returns Summary of deletion results
- */
-export async function applyDeletions(options?: ApplyDecisionOptions): Promise<ApplyDecisionResult> {
+export async function applyDeletions(options?: ApplyDecisionOptions, database?: ApplyDb): Promise<ApplyDecisionResult> {
   const { moveToTrash: useTrash = false, dryRun = false, onProgress } = options ?? {};
+  const quarantineRoot = options?.quarantineRoot || null;
+  const mode: ApplyDecisionResult["mode"] = quarantineRoot ? "quarantine" : useTrash ? "trash" : "delete";
+  log.info("Starting applyDeletions", { dryRun, mode, quarantineRoot, timestamp: new Date().toISOString() });
 
+  const db = database ?? (await DatabaseProvider.getInstance());
+  const { input, scanFolderPathOf } = await loadPlanInput(db);
+  const plan = planDeletions(input);
   const result: ApplyDecisionResult = {
     success: 0,
     failed: 0,
-    skipped: 0,
+    skipped: plan.skipped.length,
     errors: [],
+    mode,
+    sidecarsRemoved: 0,
+    plan: {
+      remove: plan.remove.map((r) => ({
+        fileId: r.fileId,
+        path: r.path,
+        because: r.because,
+        sidecars: r.sidecars.length,
+      })),
+      skipped: plan.skipped,
+    },
   };
+  for (const s of plan.skipped) log.info("Not removing file", s);
 
-  log.info("Starting applyDeletions", {
-    dryRun,
-    useTrash,
-    timestamp: new Date().toISOString(),
-  });
-
-  const db = await DatabaseProvider.getInstance();
-  const fileDecisionProvider = db.getFileDecisionProvider();
-  const mediaFileProvider = db.getMediaFileProvider();
-
-  // Get all files marked for deletion
-  const deleteDecisions = await fileDecisionProvider.getDecisionsByAction("delete");
-
-  if (deleteDecisions.length === 0) {
-    log.info("No files marked for deletion");
+  if (dryRun) {
+    result.success = plan.remove.length;
+    result.sidecarsRemoved = plan.remove.reduce((n, r) => n + r.sidecars.length, 0);
+    log.info("[DRY RUN] Deletion plan", { remove: plan.remove.length, skipped: plan.skipped.length, mode });
     return result;
   }
 
-  // Deduplicate by mediaFileId (a file may be marked delete in multiple groups)
-  const uniqueFileIds = new Set(deleteDecisions.map((d) => d.mediaFileId));
-  const filesToDelete: Array<{ file: MediaFile; decisionIds: number[] }> = [];
-
-  for (const fileId of uniqueFileIds) {
-    // SAFETY: Verify this file doesn't also have a "keep" decision
-    const allDecisions = await fileDecisionProvider.getDecisionsByMediaFileId(fileId);
-    const hasKeepDecision = allDecisions.some((d) => d.action === "keep");
-
-    if (hasKeepDecision) {
-      log.error("BUG: File has both keep and delete decisions — should be resolved before apply", { fileId });
-      result.skipped++;
-      continue;
-    }
-
-    const file = await mediaFileProvider.getMediaFileById(fileId);
-    if (!file) {
-      log.warn("Decision references non-existent file", { mediaFileId: fileId });
-      result.skipped++;
-      continue;
-    }
-
-    filesToDelete.push({
-      file,
-      decisionIds: allDecisions.filter((d) => d.action === "delete").map((d) => d.id),
-    });
-  }
-
-  const totalFiles = filesToDelete.length;
-  log.info("Files identified for deletion", { count: totalFiles, dryRun });
-
-  // Delete files
+  const media = db.getMediaFileProvider();
+  const takeout = db.getTakeoutProvider();
   let completed = 0;
-
-  for (const { file } of filesToDelete) {
-    const validation = validateFileDeletion(file);
-
-    if (!validation.valid) {
-      log.info("Skipping file", {
-        fileId: file.id,
-        path: file.path,
-        reason: validation.reason,
-      });
-      result.skipped++;
-      completed++;
-      onProgress?.(completed, totalFiles, file.path);
-      continue;
-    }
-
-    // Attempt to delete the file
-    const deleteResult = await deleteFile(file.path, useTrash, dryRun);
-
-    if (deleteResult.success) {
-      result.success++;
-
-      // Update database — delete the media file record (cascades to fileDecisions, phashMatches, etc.)
-      if (!dryRun) {
-        try {
-          await mediaFileProvider.deleteMediaFile(file.id);
-
-          log.debug("Database records removed", {
-            mediaFileId: file.id,
-          });
-        } catch (dbError) {
-          const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
-          log.error("Failed to update database after file deletion", {
-            fileId: file.id,
-            path: file.path,
-            error: errorMessage,
-          });
-          // Note: File was deleted but DB update failed - this is a partial failure
-          // The file is gone but the DB still references it
-        }
-      }
-    } else {
+  for (const removal of plan.remove) {
+    const scanFolderPath = scanFolderPathOf.get(removal.fileId) ?? "";
+    const outcome = await removeOne(removal.path, "media", mode, scanFolderPath, quarantineRoot);
+    if (!outcome.success) {
       result.failed++;
-      result.errors.push({
-        fileId: file.id,
-        path: file.path,
-        error: deleteResult.error ?? "Unknown error",
-      });
+      result.errors.push({ fileId: removal.fileId, path: removal.path, error: outcome.error ?? "Unknown error" });
+    } else {
+      result.success++;
+      const movedSidecars: number[] = [];
+      for (const sidecar of removal.sidecars) {
+        const s = await removeOne(sidecar.path, "sidecar", mode, scanFolderPath, quarantineRoot);
+        if (s.success) movedSidecars.push(sidecar.id);
+        else result.errors.push({ fileId: removal.fileId, path: sidecar.path, error: s.error ?? "Unknown error" });
+      }
+      result.sidecarsRemoved += movedSidecars.length;
+      try {
+        await takeout.deleteSidecars(movedSidecars);
+        await media.deleteMediaFile(removal.fileId); // cascades to decisions, matches, pairs
+      } catch (dbError) {
+        // The file is gone but its record remains; a re-scan reconciles it.
+        log.error("Failed to update database after removal", {
+          fileId: removal.fileId,
+          path: removal.path,
+          error: dbError instanceof Error ? dbError.message : String(dbError),
+        });
+      }
     }
-
-    completed++;
-    onProgress?.(completed, totalFiles, file.path);
+    onProgress?.(++completed, plan.remove.length, removal.path);
   }
 
-  // Recompute pre-computed group membership table after deletions
-  // (CASCADE deletes phashMatches rows, so components may have changed)
-  if (!dryRun && result.success > 0) {
-    const phashGroupProvider = db.getPhashGroupProvider();
-    await phashGroupProvider.recomputeGroups();
-  }
-
-  log.info("applyDeletions completed", {
-    ...result,
-    dryRun,
-    timestamp: new Date().toISOString(),
-  });
-
+  // phashMatches rows cascade away with removed files, so group membership may have changed.
+  if (result.success > 0) await db.getPhashGroupProvider().recomputeGroups();
+  log.info("applyDeletions completed", { ...result, plan: undefined, timestamp: new Date().toISOString() });
   return result;
 }
 
-/**
- * Preview what would be deleted without actually deleting anything.
- * Convenience wrapper around applyDeletions with dryRun=true.
- */
+/** What would happen, without changing anything. */
 export async function previewDeletions(
   onProgress?: (completed: number, total: number, currentFile: string) => void,
 ): Promise<ApplyDecisionResult> {
@@ -308,6 +150,5 @@ export async function previewDeletions(
 }
 
 // Legacy exports for backward compatibility during migration
-// These will be removed when old tables are dropped in Phase 6
 export const applyDecisions = applyDeletions;
 export const previewDecisions = previewDeletions;
