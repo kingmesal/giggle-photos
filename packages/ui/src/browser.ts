@@ -75,5 +75,6 @@ export {
   type TakeoutReport,
   type TakeoutRPC,
 } from "./services/takeout-service";
+export { initUpdateService, type UpdateRPC } from "./services/update-service";
 // State
 export { currentView, type NavItem, navItems, navigateTo, settingsNavItem, type ViewName } from "./state/navigation";

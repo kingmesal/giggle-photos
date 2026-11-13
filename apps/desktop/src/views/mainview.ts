@@ -21,6 +21,7 @@ import {
   initSettingsService,
   initSystemHealthService,
   initTakeoutService,
+  initUpdateService,
   mountApp,
   setFileServerPort,
 } from "@giggle-photos/ui/browser";
@@ -146,6 +147,15 @@ document.addEventListener("DOMContentLoaded", () => {
     initOwnerDevicesService({
       listFolderDevices: (scanFolderId) => deviceRequests.listFolderDevices({ scanFolderId }),
       setFolderOwnerDevices: (scanFolderId, devices) => deviceRequests.setFolderOwnerDevices({ scanFolderId, devices }),
+    });
+  }
+
+  const updateRequests = electrobun.rpc?.request;
+  if (updateRequests?.getUpdateState && updateRequests.restartToUpdate && updateRequests.retryUpdate) {
+    initUpdateService({
+      getUpdateState: () => updateRequests.getUpdateState({}),
+      restartToUpdate: () => updateRequests.restartToUpdate({}),
+      retryUpdate: () => updateRequests.retryUpdate({}),
     });
   }
 

@@ -2,6 +2,7 @@ import { CalendarClock, CircleCheck, Copy, Folders, Images, ListChecks, Moon, Se
 import type { ReactNode } from "react";
 import { navItems, navigateTo, settingsNavItem, useCurrentView, type ViewName } from "../state/navigation";
 import { toggleTheme, useThemeMode } from "../state/theme";
+import { UpdateStatus } from "./UpdateStatus";
 
 const NAV_ICONS: Record<ViewName, ReactNode> = {
   folders: <Folders size={18} />,
@@ -86,6 +87,7 @@ export function Sidebar() {
           <NavLink key={item.id} id={item.id} label={item.label} />
         ))}
       </nav>
+      <UpdateStatus />
       <StatusFooter />
     </aside>
   );

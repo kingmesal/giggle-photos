@@ -19,6 +19,7 @@ import type { RPCSchema } from "electrobun/main";
 import type { AppInfo } from "./app-info";
 import type { CaptureDateJob, CaptureDateReportResponse } from "./handlers/capture-dates";
 import type { QuarantineStatusResponse } from "./handlers/quarantine";
+import type { UpdateState } from "./updater";
 
 type ClipModelStatus = ReturnType<typeof getClipModelStatus>;
 
@@ -92,6 +93,18 @@ export type GigglePhotosRPC = {
       getCaptureDateJob: {
         params: Record<string, never>;
         response: CaptureDateJob;
+      };
+      getUpdateState: {
+        params: Record<string, never>;
+        response: UpdateState;
+      };
+      restartToUpdate: {
+        params: Record<string, never>;
+        response: UpdateState;
+      };
+      retryUpdate: {
+        params: Record<string, never>;
+        response: UpdateState;
       };
       listFolderDevices: {
         params: { scanFolderId: number };

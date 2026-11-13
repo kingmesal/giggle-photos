@@ -39,6 +39,7 @@ import { checkTrashAvailable, getSettings, saveSettings, saveWindowBounds } from
 import { getSystemHealth } from "./handlers/system-health";
 import { compareImmichGoReport, getTakeoutReport } from "./handlers/takeout";
 import type { GigglePhotosRPC } from "./rpc-types";
+import { getUpdateState, restartToUpdate, startBackgroundUpdate } from "./updater";
 
 /** RPC instance for webview-to-main communication. 30s timeout for native dialogs and DB ops. */
 export const appRPC = BrowserView.defineRPC<GigglePhotosRPC>({
@@ -57,6 +58,12 @@ export const appRPC = BrowserView.defineRPC<GigglePhotosRPC>({
       getCaptureDateReport,
       startCaptureDates,
       getCaptureDateJob,
+      getUpdateState: async () => getUpdateState(),
+      restartToUpdate,
+      retryUpdate: async () => {
+        void startBackgroundUpdate();
+        return getUpdateState();
+      },
       listFolderDevices,
       setFolderOwnerDevices,
       getQuarantineStatus,

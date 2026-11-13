@@ -6,15 +6,11 @@ import { initUI } from "@giggle-photos/ui";
 import { loadVersionsFromPackageJson } from "./app-info";
 import { startFileServer } from "./file-server";
 import { appRPC } from "./rpc";
-import { checkAndApplyUpdates } from "./updater";
+import { startBackgroundUpdate } from "./updater";
 import { createMainWindow, setupWindowLifecycle } from "./window";
 
 loadVersionsFromPackageJson();
 ensureAppDataDir();
-
-// Check for updates before launching the app. If an update is found, the app
-// restarts with the new version and this process exits (code below won't run).
-await checkAndApplyUpdates();
 
 await DatabaseProvider.getInstance();
 
@@ -40,3 +36,7 @@ setupWindowLifecycle(mainWindow);
 
 logger.info("Giggle Photos app started!");
 initUI();
+
+// Updates download in the background once the window is up; the window shows the progress and
+// offers "Restart to update" when it is ready.
+void startBackgroundUpdate();
