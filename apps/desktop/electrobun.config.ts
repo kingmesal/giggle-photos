@@ -22,7 +22,8 @@ export const config = {
     },
     win: {
       bundleCEF: true,
-      icon: "app-icon.png",
+      // Windows icons are at most 256×256 (a larger PNG fails with PngTooLarge).
+      icon: "icon.iconset/icon_256x256.png",
     },
     linux: {
       bundleCEF: true,

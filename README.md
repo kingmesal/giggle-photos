@@ -44,9 +44,12 @@ Download the package for your computer from the
 
 | System | File | How |
 |---|---|---|
-| macOS (Apple silicon / Intel) | `macos-arm64-GigglePhotos.dmg` / `macos-x64-GigglePhotos.dmg` | Open the DMG and drag Giggle Photos to Applications. The app is not signed yet: the first time, right-click it → **Open** (or run `xattr -dr com.apple.quarantine "/Applications/Giggle Photos.app"`). |
+| macOS (Apple silicon) | `macos-arm64-GigglePhotos.dmg` | Open the DMG and drag Giggle Photos to Applications. The app is not signed yet: the first time, right-click it → **Open** (or run `xattr -dr com.apple.quarantine "/Applications/Giggle Photos.app"`). |
 | Windows | `win-x64-GigglePhotos-Setup.zip` | Unzip and run the setup program. Windows SmartScreen warns about an unsigned app: **More info → Run anyway**. |
 | Linux (x64 / arm64) | `linux-x64-GigglePhotos-Setup.tar.gz` / `linux-arm64-…` | `tar xzf linux-*-GigglePhotos-Setup.tar.gz` and run `./installer`. Needs WebKitGTK and GTK 3 (`sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0`). |
+
+Intel Macs are not supported: ONNX Runtime, which runs the visual similarity model, no longer
+ships an Intel macOS build.
 
 Also install **ffmpeg** (`brew install ffmpeg`, `winget install ffmpeg`, or `sudo apt install
 ffmpeg`): it reads video metadata and video frames for visual matching. Everything else works
