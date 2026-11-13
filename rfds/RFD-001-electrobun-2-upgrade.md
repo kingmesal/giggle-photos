@@ -70,6 +70,11 @@ The original draft assumed a normal npm version bump. It is not:
   1.12.3 and 2.0.6 alike). Dev builds inside the repo find `sharp` by walking up to the repo's
   `node_modules`; a distributed build would not. Pre-existing, but RFD-002's plan to "add
   `onnxruntime-node` to `build.bun.external`" is not sufficient on its own for a shipped app.
+  **Resolved 2026-11-12:** `scripts.postBuild` (`apps/desktop/scripts/postbuild.ts`) copies the
+  dependency closure of `sharp` and `onnxruntime-node` (this host's binaries only, about 60 MB)
+  into `Resources/app/bun/node_modules` while the app tree is uncompressed, then loads both from an
+  isolated copy and fails the build if either does not load. `scripts/check-package.ts` checks
+  the finished package (including the compressed inner archive) in the release workflow.
 - **Updater bridge:** 1.x → 2.x auto-update works only from installed **1.18.1+** (same
   `app.name`, `app.identifier`, `release.baseUrl`; `--env=stable`; publish both `*-update.json`
   and `*-update-v2.json`). We are on 1.12.3, and no release or tag has ever been published.

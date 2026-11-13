@@ -37,6 +37,28 @@ We’re working on RFD_0172.
 You’re role/SECURITY.
 Your only write permission is to a timestamped SECURITY_REPORT.
 
+## Install
+
+Download the package for your computer from the
+[latest release](https://github.com/kingmesal/giggle-photos/releases/latest):
+
+| System | File | How |
+|---|---|---|
+| macOS (Apple silicon / Intel) | `macos-arm64-GigglePhotos.dmg` / `macos-x64-GigglePhotos.dmg` | Open the DMG and drag Giggle Photos to Applications. The app is not signed yet: the first time, right-click it → **Open** (or run `xattr -dr com.apple.quarantine "/Applications/Giggle Photos.app"`). |
+| Windows | `win-x64-GigglePhotos-Setup.zip` | Unzip and run the setup program. Windows SmartScreen warns about an unsigned app: **More info → Run anyway**. |
+| Linux (x64 / arm64) | `linux-x64-GigglePhotos-Setup.tar.gz` / `linux-arm64-…` | `tar xzf linux-*-GigglePhotos-Setup.tar.gz` and run `./installer`. Needs WebKitGTK and GTK 3 (`sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0`). |
+
+Also install **ffmpeg** (`brew install ffmpeg`, `winget install ffmpeg`, or `sudo apt install
+ffmpeg`): it reads video metadata and video frames for visual matching. Everything else works
+without it.
+
+On first launch the app downloads the visual similarity (CLIP) model (about 335 MB, verified by
+its SHA-256). You can keep working while it downloads.
+
+Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed (draft release;
+publish it on GitHub). To build a package yourself: `bun install && bun run build:stable`; the
+files land in `apps/desktop/artifacts/`.
+
 ## Quick Start
 
 ```bash

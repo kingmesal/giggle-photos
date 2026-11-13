@@ -53,9 +53,14 @@ export const config = {
   },
   scripts: {
     preBuild: "scripts/prebuild.ts",
+    // Copies sharp + onnxruntime-node (this host's binaries) into Resources/app/bun/node_modules
+    // while the app tree is still uncompressed, then checks they load.
+    postBuild: "scripts/postbuild.ts",
   },
   release: {
     baseUrl: process.env.RELEASE_BASE_URL || "https://github.com/kingmesal/giggle-photos/releases/latest/download",
+    // No delta patches until releases exist to diff against.
+    generatePatch: false,
   },
 } satisfies ElectrobunConfig;
 
